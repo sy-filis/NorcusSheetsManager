@@ -36,7 +36,7 @@ namespace NorcusSheetsManager.API
 
             _server = serverBuilder.Build();
             _server.Prefixes.Clear();
-            _server.Prefixes.Add($"https://+:{port}/");
+            _server.Prefixes.Add($"http://+:{port}/");
             //_server.Prefixes.Add($"http://localhost:{port}/");
             _server.Router.BeforeRoutingAsync.Add(_BeforeRouting);
         }

@@ -38,7 +38,6 @@ namespace NorcusSheetsManager
 
             if (deserialized != null) 
             {
-                _SaveRegistry(deserialized.RunOnStartup);
                 _Save(deserialized); // tímto zajistím uložení aktuální verze Configu v případě, že načtený Config byl starší verze.
             }
 
@@ -59,23 +58,11 @@ namespace NorcusSheetsManager
             file.Close();
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
-        private static void _SaveRegistry(bool runOnStartup)
-        {
-            RegistryKey? key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-            if (runOnStartup)
-                key?.SetValue("AutoPdfToImage", 
-                    "\"" + System.Reflection.Assembly.GetExecutingAssembly().Location.Replace(".dll", ".exe") + "\"");
-            else
-                key?.DeleteValue("AutoPdfToImage", false);
-        }
-
         private static Config _GetDefaultConfig() => new Config();
 
         public class Config : IConfig
         {
             public string? SheetsPath { get; set; } = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            public bool RunOnStartup { get; set; } = true;
             public bool AutoScan { get; set; } = true;
             public MagickFormat OutFileFormat { get; set; } = MagickFormat.Png;
             public string MultiPageDelimiter { get; set; } = "-";
