@@ -26,12 +26,15 @@ namespace AutoPdfToImage
                 manager.StartWatching(true);
                 if (manager.Config.AutoScan) manager.AutoFullScan(60000, 5);
 
-                string commandMessage = "Commands:\n" +
-                    "\tS - scan all PDF files (checks whether all PDFs have any image)\n" +
-                    "\tD - deep scan (checks image files count vs PDF page count)\n" +
-                    "\tF - force convert (converts all PDF files)\n" +
-                    "\tN - correct invalid file names\n" +
-                    "\tX - stop program";
+                string commandMessage = """
+                    Commands:
+                        S -- Scan all PDF files (checks whether all PDFs have any image)
+                        D -- Deep scan (checks image files count vs PDF page count)
+                        F -- Force convert (converts all PDF files)
+                        C|N -- Correct invalid file Names
+                        X|T -- sTop program
+                """;
+
                 Console.WriteLine(commandMessage);
 
                 bool @continue = true;
@@ -39,9 +42,6 @@ namespace AutoPdfToImage
                 {
                     switch (Console.ReadKey(true).Key.ToString())
                     {
-                        case "X":
-                            @continue = false;
-                            break;
                         case "S":
                             manager.FullScan();
                             break;
@@ -53,8 +53,13 @@ namespace AutoPdfToImage
                             if (Console.ReadKey(true).Key.ToString() == "Y")
                                 manager.ForceConvertAll();
                             break;
+                        case "C":
                         case "N":
                             CorrectNames(manager);
+                            break;
+                        case "T":
+                        case "X":
+                            @continue = false;
                             break;
                         default:
                             break;
