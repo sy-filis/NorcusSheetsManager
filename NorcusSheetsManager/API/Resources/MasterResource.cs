@@ -41,6 +41,7 @@ namespace NorcusSheetsManager.API.Resources
                 .Select(d => d.Split("\\").Last())
                 .Where(d => !d.StartsWith("."));
 
+            context.Response.ContentType = ContentType.Json;
             await context.Response.SendResponseAsync(JsonSerializer.Serialize(folders));
         }
     }

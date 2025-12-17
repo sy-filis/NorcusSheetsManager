@@ -83,8 +83,7 @@ namespace NorcusSheetsManager.API.Resources
                 await context.Response.SendResponseAsync($"Bad request: Folder \"{folder ?? _Corrector.BaseSheetsFolder}\" does not exist.");
                 return;
             }
-
-            context.Response.StatusCode = HttpStatusCode.Ok;
+            context.Response.ContentType = ContentType.Json;
             await context.Response.SendResponseAsync(JsonSerializer.Serialize(transactions, serializationType));
         }
 
@@ -100,8 +99,7 @@ namespace NorcusSheetsManager.API.Resources
 
             if (!_Corrector.ReloadData())
             {
-                context.Response.StatusCode = HttpStatusCode.InternalServerError;
-                await context.Response.SendResponseAsync($"No songs were loaded from the database.");
+                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, $"No songs were loaded from the database.");
                 return;
             }
 
@@ -124,12 +122,10 @@ namespace NorcusSheetsManager.API.Resources
 
             if (transactions is null)
             {
-                context.Response.StatusCode = HttpStatusCode.BadRequest;
-                await context.Response.SendResponseAsync($"Bad request: Folder \"{folder ?? _Corrector.BaseSheetsFolder}\" does not exist.");
+                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: Folder \"{folder ?? _Corrector.BaseSheetsFolder}\" does not exist.");
                 return;
             }
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
             await context.Response.SendResponseAsync(transactions.Count().ToString());
         }
 
@@ -165,8 +161,7 @@ namespace NorcusSheetsManager.API.Resources
                 if (request.TransactionGuid == Guid.Empty)
                     msg += " Parameter \"TransactionGuid\" is invalid";
 
-                context.Response.StatusCode = HttpStatusCode.BadRequest;
-                await context.Response.SendResponseAsync(msg);
+                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, msg);
                 return;
             }
 
@@ -176,12 +171,11 @@ namespace NorcusSheetsManager.API.Resources
 
             if (!response.Success)
             {
-                context.Response.StatusCode = HttpStatusCode.InternalServerError;
-                await context.Response.SendResponseAsync(response.Message);
+                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, response.Message);
                 return;
             }
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
+            context.Response.ContentType = ContentType.Json;
             await context.Response.SendResponseAsync();
         }
 
@@ -206,8 +200,7 @@ namespace NorcusSheetsManager.API.Resources
             context.Request.PathParameters.TryGetValue("transaction", out string? guidString);
             if (!Guid.TryParse(guidString, out Guid guid))
             {
-                context.Response.StatusCode = HttpStatusCode.BadRequest;
-                await context.Response.SendResponseAsync($"Bad request: Parameter \"{guidString}\" is not valid Guid.");
+                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: Parameter \"{guidString}\" is not valid Guid.");
                 return;
             }
 
@@ -215,8 +208,7 @@ namespace NorcusSheetsManager.API.Resources
 
             if (!response.Success)
             {
-                context.Response.StatusCode = HttpStatusCode.InternalServerError;
-                await context.Response.SendResponseAsync(response.Message);
+                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, response.Message);
                 return;
             }
 
@@ -245,14 +237,13 @@ namespace NorcusSheetsManager.API.Resources
 
             if(errorMsg.Length > 0)
             {
-                context.Response.StatusCode = HttpStatusCode.BadRequest;
-                await context.Response.SendResponseAsync($"Bad request: " + errorMsg.ToString());
+                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: " + errorMsg.ToString());
                 return;
             }
 
             context.Request.PathParameters.TryGetValue("fileName", out string? fileName);
             IRenamingSuggestion suggestion = new Suggestion(trans!.InvalidFullPath, fileName ?? "", 0);
-            context.Response.StatusCode = HttpStatusCode.Ok;
+            context.Response.ContentType = ContentType.Json;
             await context.Response.SendResponseAsync(JsonSerializer.Serialize(suggestion));
         }
     }
