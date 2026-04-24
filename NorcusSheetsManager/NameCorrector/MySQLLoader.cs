@@ -7,14 +7,14 @@ using MySqlConnector;
 
 namespace NorcusSheetsManager.NameCorrector;
 
-internal class MySQLLoader : IDbLoader
+internal class MySQLLoader(string server, ushort port, string database, string userId, string password) : IDbLoader
 {
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
-  public string Server { get; set; }
-  public ushort Port { get; set; }
-  public string Database { get; set; }
-  public string UserId { get; set; }
-  public string Password { get; set; }
+  public string Server { get; set; } = server;
+  public ushort Port { get; set; } = port;
+  public string Database { get; set; } = database;
+  public string UserId { get; set; } = userId;
+  public string Password { get; set; } = password;
   public string ConnectionString => new MySqlConnectionStringBuilder
   {
     Server = Server,
@@ -25,14 +25,6 @@ internal class MySQLLoader : IDbLoader
   }.ConnectionString;
   private List<string> _Songs { get; set; } = new();
   private List<NorcusUser> _Users { get; set; } = new();
-  public MySQLLoader(string server, ushort port, string database, string userId, string password)
-  {
-    Server = server;
-    Port = port;
-    Database = database;
-    UserId = userId;
-    Password = password;
-  }
 
   public IEnumerable<string> GetSongNames()
   {

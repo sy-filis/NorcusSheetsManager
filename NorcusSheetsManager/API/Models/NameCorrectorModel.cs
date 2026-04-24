@@ -7,15 +7,10 @@ using NorcusSheetsManager.NameCorrector;
 
 namespace NorcusSheetsManager.API.Models;
 
-internal class NameCorrectorModel
+internal class NameCorrectorModel(IDbLoader dbLoader)
 {
-  private readonly IDbLoader _dbLoader;
-  public NameCorrectorModel(IDbLoader dbLoader)
-  {
-    _dbLoader = dbLoader;
-  }
   /// <summary>
-  /// Pokud je uživatel admin, vrací vždy true. Pro neadminy platí: Uživatel musí existovat; 
+  /// Pokud je uživatel admin, vrací vždy true. Pro neadminy platí: Uživatel musí existovat;
   /// pokud žádá o cizí složku, vrací se false; pokud žádá o všechny složky, vrací se true
   /// a do <paramref name="sheetsFolder"/> se nastaví složka uživatele.
   /// </summary>
@@ -30,7 +25,7 @@ internal class NameCorrectorModel
       return true;
     }
 
-    INorcusUser? user = _dbLoader.GetUsers().FirstOrDefault(u => u.Guid == guid);
+    INorcusUser? user = dbLoader.GetUsers().FirstOrDefault(u => u.Guid == guid);
     if (user is null)
     {
       return false;
@@ -67,12 +62,8 @@ internal class NameCorrectorModel
       return true;
     }
 
-    INorcusUser? user = _dbLoader.GetUsers().FirstOrDefault(u => u.Guid == guid);
-    if (user is null)
-    {
-      return false;
-    }
-
-    return true;
+    INorcusUser? user = dbLoader.GetUsers().FirstOrDefault(u => u.Guid == guid);
+    
+    return user is not null;
   }
 }

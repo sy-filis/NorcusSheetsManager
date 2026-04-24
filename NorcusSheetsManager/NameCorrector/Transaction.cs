@@ -6,17 +6,19 @@ using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.NameCorrector;
 
-internal class Transaction : IRenamingTransaction
+internal class Transaction(string baseFolder, string invalidFullName, IEnumerable<IRenamingSuggestion> suggestions) : IRenamingTransaction
 {
   public const int MAX_SUGGESTIONS_COUNT = 10;
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
-  public Guid Guid { get; }
-  public string InvalidFullPath { get; }
-  public string? InvalidRelativePath { get; }
-  public string InvalidFileName { get; }
+  public Guid Guid { get; } = Guid.NewGuid();
+  public string InvalidFullPath { get; } = invalidFullName;
+  public string? InvalidRelativePath { get; } = invalidFullName.StartsWith(baseFolder)
+      ? Path.GetDirectoryName(invalidFullName.Remove(0, baseFolder.Length + 1))
+      : Path.GetDirectoryName(invalidFullName);
+  public string InvalidFileName { get; } = Path.GetFileName(invalidFullName);
   public IEnumerable<IRenamingSuggestion> Suggestions =>
       _SuggestionsList?.Take(SuggestionsCount) ?? Enumerable.Empty<IRenamingSuggestion>();
-  private List<IRenamingSuggestion>? _SuggestionsList { get; set; }
+  private List<IRenamingSuggestion>? _SuggestionsList { get; set; } = new(suggestions.Take(MAX_SUGGESTIONS_COUNT));
   private bool _IsCommited
   {
     get => __isCommited;
@@ -32,19 +34,6 @@ internal class Transaction : IRenamingTransaction
   {
     get => __suggestionsCount;
     set => __suggestionsCount = value > MAX_SUGGESTIONS_COUNT ? MAX_SUGGESTIONS_COUNT : value;
-  }
-
-  public Transaction(string baseFolder, string invalidFullName, IEnumerable<IRenamingSuggestion> suggestions)
-  {
-    Guid = Guid.NewGuid();
-    InvalidFullPath = invalidFullName;
-    InvalidFileName = Path.GetFileName(invalidFullName);
-
-    InvalidRelativePath = !invalidFullName.StartsWith(baseFolder)
-      ? Path.GetDirectoryName(invalidFullName)
-      : Path.GetDirectoryName(invalidFullName.Remove(0, baseFolder.Length + 1));
-
-    _SuggestionsList = new List<IRenamingSuggestion>(suggestions.Take(MAX_SUGGESTIONS_COUNT));
   }
 
   public ITransactionResponse Commit(int suggestionIndex)

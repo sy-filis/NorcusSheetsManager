@@ -6,13 +6,8 @@ using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.NameCorrector;
 
-internal class TransactionResponse : ITransactionResponse
+internal class TransactionResponse(bool success, string? message = null) : ITransactionResponse
 {
-  public bool Success { get; }
-  public string? Message { get; }
-  public TransactionResponse(bool success, string? message = null)
-  {
-    Success = success;
-    Message = message;
-  }
+  public bool Success { get; } = success;
+  public string? Message { get; } = message;
 }
