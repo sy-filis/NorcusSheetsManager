@@ -1,71 +1,42 @@
-﻿using Grapevine;
-using Microsoft.Extensions.Logging;
-using NLog.Filters;
-using NorcusSheetsManager.NameCorrector;
-using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Diagnostics;
-using System.Linq;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.API.Resources
 {
-    [RestResource(BasePath = "api/v1/manager")]
-    internal class ManagerResource
+    internal static class ManagerResource
     {
-        private ITokenAuthenticator _Authenticator { get; set; }
-        private Manager _Manager { get; set; }
-        public ManagerResource(ITokenAuthenticator authenticator, Manager manager)
+        public static void MapEndpoints(IEndpointRouteBuilder app)
         {
-            _Authenticator = authenticator;
-            _Manager = manager;
-        }
+            var group = app.MapGroup("/api/v1/manager");
 
-        [RestRoute("Post", "/scan")]
-        public async Task Scan(IHttpContext context)
-        {
-            if (!_Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true")))
+            group.MapPost("/scan", (ITokenAuthenticator auth, Manager manager, HttpContext ctx) =>
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
+                if (!auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true")))
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
-            await context.Response.SendResponseAsync();
-            
-            _Manager.FullScan();
-        }
-        [RestRoute("Post", "/deep-scan")]
-        public async Task DeepScan(IHttpContext context)
-        {
-            if (!_Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true")))
+                _ = System.Threading.Tasks.Task.Run(() => manager.FullScan());
+                return Results.Ok();
+            });
+
+            group.MapPost("/deep-scan", (ITokenAuthenticator auth, Manager manager, HttpContext ctx) =>
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
+                if (!auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true")))
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
-            await context.Response.SendResponseAsync();
+                _ = System.Threading.Tasks.Task.Run(() => manager.DeepScan());
+                return Results.Ok();
+            });
 
-            _Manager.DeepScan();
-        }
-        [RestRoute("Post", "/convert-all")]
-        public async Task ConvertAll(IHttpContext context)
-        {
-            if (!_Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true")))
+            group.MapPost("/convert-all", (ITokenAuthenticator auth, Manager manager, HttpContext ctx) =>
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
+                if (!auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true")))
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
-            await context.Response.SendResponseAsync();
-
-            _Manager.ForceConvertAll();
+                _ = System.Threading.Tasks.Task.Run(() => manager.ForceConvertAll());
+                return Results.Ok();
+            });
         }
     }
 }

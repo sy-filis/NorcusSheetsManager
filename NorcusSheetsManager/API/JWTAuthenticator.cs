@@ -1,5 +1,4 @@
-﻿using Grapevine;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -8,7 +7,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.API
 {
@@ -26,14 +24,11 @@ namespace NorcusSheetsManager.API
         }
         public bool IsTokenValid(string token) => _ProcessToken(token).Valid;
 
-        public string? GetClaimValue(IHttpContext context, string claimType)
+        public string? GetClaimValue(HttpContext context, string claimType)
         {
-            if (!context.Request.Headers.AllKeys.Contains("Authorization"))
-                return null;
-
-            string? jwtToken = context.Request.Headers.GetValue<string>("Authorization")?
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)[1];
-            return GetClaimValue(jwtToken ?? "", claimType);
+            string? jwtToken = _ExtractBearerToken(context);
+            if (jwtToken is null) return null;
+            return GetClaimValue(jwtToken, claimType);
         }
         public string? GetClaimValue(string token, string claimType)
         {
@@ -41,24 +36,34 @@ namespace NorcusSheetsManager.API
             return claims?.Claims.FirstOrDefault(c => c.Type.ToLower() == claimType.ToLower())?.Value;
         }
 
-        public bool ValidateFromContext(IHttpContext context)
+        public bool ValidateFromContext(HttpContext context)
             => ValidateFromContext(context, Enumerable.Empty<Claim>());
-        public bool ValidateFromContext(IHttpContext context, Claim requiredClaim)
+        public bool ValidateFromContext(HttpContext context, Claim requiredClaim)
             => ValidateFromContext(context, new[] { requiredClaim });
-        public bool ValidateFromContext(IHttpContext context, IEnumerable<Claim> requiredClaims)
+        public bool ValidateFromContext(HttpContext context, IEnumerable<Claim> requiredClaims)
         {
             if (string.IsNullOrEmpty(_key)) return true;
 
-            string jwtToken = context.Request.Headers.GetValue<string>("Authorization").Split(' ', StringSplitOptions.RemoveEmptyEntries)[1];
-            var token = _ProcessToken(jwtToken);
+            string? jwtToken = _ExtractBearerToken(context);
+            if (jwtToken is null) return false;
 
+            var token = _ProcessToken(jwtToken);
             if (!token.Valid) return false;
+
             foreach (var requiredClaim in requiredClaims)
             {
                 Claim? claim = token.Claims?.FindFirst((c) => c.Type == requiredClaim.Type && c.Value == requiredClaim.Value);
                 if (claim is null) return false;
             }
             return true;
+        }
+
+        private static string? _ExtractBearerToken(HttpContext context)
+        {
+            if (!context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+                return null;
+            var parts = authHeader.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 ? parts[1] : null;
         }
 
         private (bool Valid, ClaimsPrincipal? Claims) _ProcessToken(string token)

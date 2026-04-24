@@ -1,48 +1,27 @@
-﻿using Grapevine;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using NorcusSheetsManager.NameCorrector;
-using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.API.Resources
 {
-    [RestResource]
-    internal class MasterResource
+    internal static class MasterResource
     {
-        private readonly ITokenAuthenticator _authenticator;
-        private readonly Corrector _corrector;
-
-        public MasterResource(ITokenAuthenticator authenticator, Corrector corrector)
+        public static void MapEndpoints(IEndpointRouteBuilder app)
         {
-            this._authenticator = authenticator;
-            this._corrector = corrector;
-        }
-
-        [RestRoute("Options")]
-        public async Task Options(IHttpContext context)
-        {
-            context.Response.AddHeader("Access-Control-Max-Age", "86400");
-            await context.Response.SendResponseAsync(HttpStatusCode.Ok);
-        }
-
-        [RestRoute("Get", "api/v1/folders")]
-        public async Task GetFolders(IHttpContext context)
-        {
-            if (!_authenticator.ValidateFromContext(context))
+            app.MapGet("/api/v1/folders", (ITokenAuthenticator auth, Corrector corrector, HttpContext ctx) =>
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
+                if (!auth.ValidateFromContext(ctx))
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            var folders = Directory.GetDirectories(_corrector.BaseSheetsFolder)
-                .Select(d => d.Split("\\").Last())
-                .Where(d => !d.StartsWith("."));
+                var folders = Directory.GetDirectories(corrector.BaseSheetsFolder)
+                    .Select(d => Path.GetFileName(d))
+                    .Where(d => !string.IsNullOrEmpty(d) && !d.StartsWith("."));
 
-            context.Response.ContentType = ContentType.Json;
-            await context.Response.SendResponseAsync(JsonSerializer.Serialize(folders));
+                return Results.Json(folders);
+            });
         }
     }
 }

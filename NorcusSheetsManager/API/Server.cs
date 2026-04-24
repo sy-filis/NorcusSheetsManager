@@ -1,58 +1,61 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Grapevine;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
+using NorcusSheetsManager.API.Resources;
 using NorcusSheetsManager.NameCorrector;
+using System;
+using System.Collections.Generic;
 
 namespace NorcusSheetsManager.API
 {
-    public class Server
+    public static class Server
     {
-        private static Server? __instance;
-        private static Server _Instance 
-        {
-            get 
-            {
-                if (__instance is null) throw new Exception("Server is not initialized. Call " + nameof(Initialize));
-                return __instance; 
-            }
-        }
-        private IRestServer _server;
-        private Server(int port, string secureKey, List<(Type type, object instance)> singletons)
-        {
-            RestServerBuilder serverBuilder = RestServerBuilder.From<Startup>();
-            serverBuilder.Services.AddSingleton<ITokenAuthenticator>(new JWTAuthenticator(secureKey));
+        private static WebApplication? _app;
 
-            foreach (var s in singletons)
-            {
-                serverBuilder.Services.AddSingleton(s.type, s.instance);
-            }
+        public static void Initialize(int port, string secureKey, List<(Type type, object instance)> singletons)
+        {
+            if (_app is not null) throw new Exception("Instance is already created.");
 
-            _server = serverBuilder.Build();
-            _server.Prefixes.Clear();
-            _server.Prefixes.Add($"http://+:{port}/");
-            //_server.Prefixes.Add($"http://localhost:{port}/");
-            _server.Router.BeforeRoutingAsync.Add(_BeforeRouting);
+            var builder = WebApplication.CreateBuilder();
+
+            builder.Logging.ClearProviders();
+            builder.Logging.AddNLog("NLog.config");
+
+            builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+            builder.Services.AddSingleton<ITokenAuthenticator>(new JWTAuthenticator(secureKey));
+            foreach (var (type, instance) in singletons)
+                builder.Services.AddSingleton(type, instance);
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy => policy
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .SetPreflightMaxAge(TimeSpan.FromSeconds(86400)));
+            });
+
+            _app = builder.Build();
+            _app.UseCors();
+
+            MasterResource.MapEndpoints(_app);
+            NameCorrectorResource.MapEndpoints(_app);
+            ManagerResource.MapEndpoints(_app);
         }
-        internal static void Initialize(int port, string secureKey, List<(Type type, object instance)> singletons) 
+
+        public static void Start()
         {
-            if (__instance != null) throw new Exception("Instace is already created.");
-            __instance = new Server(port, secureKey, singletons);
+            if (_app is null) throw new Exception("Server is not initialized. Call " + nameof(Initialize));
+            _app.StartAsync().GetAwaiter().GetResult();
         }
-        public static void Start() => _Instance._server.Start();
-        public static void Stop() => _Instance._server.Stop();
-        private Task _BeforeRouting(IHttpContext context)
+
+        public static void Stop()
         {
-            context.Response.AddHeader("Access-Control-Allow-Origin", "*");
-            context.Response.AddHeader("Access-Control-Allow-Methods", "*");
-            context.Response.AddHeader("Access-Control-Allow-Headers", "*");
-            return Task.CompletedTask;
+            _app?.StopAsync().GetAwaiter().GetResult();
         }
     }
 }

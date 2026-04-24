@@ -14,9 +14,15 @@ namespace NorcusSheetsManager
     {
         private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
-        private static string GetDefaultConfigFilePath() =>
-            Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\" +
-            Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetExecutingAssembly().Location) + "Cfg.xml";
+        private static string GetDefaultConfigFilePath()
+        {
+            string? exePath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exePath))
+                return Path.Combine(AppContext.BaseDirectory, "NorcusSheetsManagerCfg.xml");
+            string dir = Path.GetDirectoryName(exePath) ?? AppContext.BaseDirectory;
+            string name = Path.GetFileNameWithoutExtension(exePath);
+            return Path.Combine(dir, name + "Cfg.xml");
+        }
         public static IConfig Load() => Load(GetDefaultConfigFilePath());
         public static IConfig Load(string configFilePath)
         {
@@ -62,7 +68,7 @@ namespace NorcusSheetsManager
 
         public class Config : IConfig
         {
-            public string? SheetsPath { get; set; } = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            public string? SheetsPath { get; set; } = AppContext.BaseDirectory;
             public bool AutoScan { get; set; } = true;
             public MagickFormat OutFileFormat { get; set; } = MagickFormat.Png;
             public string MultiPageDelimiter { get; set; } = "-";

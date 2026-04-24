@@ -1,4 +1,4 @@
-﻿using Grapevine;
+using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
 using System.Security.Claims;
 
@@ -7,10 +7,10 @@ namespace NorcusSheetsManager.API
     public interface ITokenAuthenticator
     {
         bool IsTokenValid(string token);
-        string? GetClaimValue(IHttpContext context, string claimType);
+        string? GetClaimValue(HttpContext context, string claimType);
         string? GetClaimValue(string token, string claimType);
-        bool ValidateFromContext(IHttpContext context);
-        bool ValidateFromContext(IHttpContext context, Claim requiredClaim);
-        bool ValidateFromContext(IHttpContext context, IEnumerable<Claim> requiredClaims);
+        bool ValidateFromContext(HttpContext context);
+        bool ValidateFromContext(HttpContext context, Claim requiredClaim);
+        bool ValidateFromContext(HttpContext context, IEnumerable<Claim> requiredClaims);
     }
 }

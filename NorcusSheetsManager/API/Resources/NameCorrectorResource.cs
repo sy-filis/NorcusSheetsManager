@@ -1,11 +1,10 @@
-﻿using Grapevine;
-using Microsoft.Extensions.Logging;
-using NLog.Filters;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using NorcusSheetsManager.API.Resources.RequestClasses;
 using NorcusSheetsManager.NameCorrector;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
-using System.Diagnostics;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -14,237 +13,180 @@ using System.Threading.Tasks;
 
 namespace NorcusSheetsManager.API.Resources
 {
-    [RestResource(BasePath = "api/v1/corrector")]
-    internal class NameCorrectorResource
+    internal static class NameCorrectorResource
     {
-        private ITokenAuthenticator _Authenticator { get; set; }
-        private Corrector _Corrector { get; set; }
-        private Models.NameCorrectorModel _Model { get; set; }
-        public NameCorrectorResource(ITokenAuthenticator authenticator, Corrector corrector)
+        public static void MapEndpoints(IEndpointRouteBuilder app)
         {
-            _Authenticator = authenticator;
-            _Corrector = corrector;
-            _Model = new Models.NameCorrectorModel(corrector.DbLoader);
+            var group = app.MapGroup("/api/v1/corrector");
+
+            group.MapGet("/invalid-names/{suggestionsCount:int?}",
+                (int? suggestionsCount, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
+                    => GetInvalidNames(null, suggestionsCount, auth, corrector, ctx));
+            group.MapGet("/{folder}/invalid-names/{suggestionsCount:int?}",
+                (string folder, int? suggestionsCount, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
+                    => GetInvalidNames(folder, suggestionsCount, auth, corrector, ctx));
+
+            group.MapGet("/count",
+                (ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
+                    => GetCount(null, auth, corrector, ctx));
+            group.MapGet("/{folder}/count",
+                (string folder, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
+                    => GetCount(folder, auth, corrector, ctx));
+
+            group.MapPost("/fix-name", FixName);
+
+            group.MapDelete("/{transaction}", DeleteFile);
+
+            group.MapGet("/file-exists/{transaction}/{fileName}", CheckFileExists);
         }
 
-        [RestRoute("Get", "/invalid-names")]
-        [RestRoute("Get", "/invalid-names/{suggestionsCount:num}")]
-        [RestRoute("Get", "/{folder}/invalid-names")]
-        [RestRoute("Get", "/{folder}/invalid-names/{suggestionsCount:num}")]
-        public async Task GetInvalidNames(IHttpContext context)
+        private static async Task<IResult> GetInvalidNames(string? folder, int? suggestionsCount,
+            ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
         {
-            if (!_Authenticator.ValidateFromContext(context))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Unauthorized);
-                return;
-            }
+            if (!auth.ValidateFromContext(ctx))
+                return Results.Unauthorized();
 
-            if (!_Corrector.ReloadData())
-            {
-                context.Response.StatusCode = HttpStatusCode.InternalServerError;
-                await context.Response.SendResponseAsync($"No songs were loaded from the database.");
-                return;
-            }
+            if (!corrector.ReloadData())
+                return Results.Text("No songs were loaded from the database.", statusCode: StatusCodes.Status500InternalServerError);
 
-            context.Request.PathParameters.TryGetValue("folder", out string? folder);
+            bool isAdmin = auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true"));
+            Guid userId = new Guid(auth.GetClaimValue(ctx, "uuid") ?? Guid.Empty.ToString());
+            var model = new Models.NameCorrectorModel(corrector.DbLoader);
+            if (!model.CanUserRead(isAdmin, userId, ref folder))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            // Kontrola práv uživatele
-            bool isAdmin = _Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true"));
-            Guid userId = new Guid(_Authenticator.GetClaimValue(context, "uuid") ?? Guid.Empty.ToString());
-            if (!_Model.CanUserRead(isAdmin, userId, ref folder))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
-
-            int suggestionsCount = 1;
-            if (context.Request.PathParameters.TryGetValue("suggestionsCount", out string? suggestionsCountString)
-                && Int32.TryParse(suggestionsCountString, out int suggestionsCountInt))
-            {
-                suggestionsCount = suggestionsCountInt;
-            }
+            int count = suggestionsCount ?? 1;
 
             IEnumerable<IRenamingTransaction>? transactions;
             Type serializationType;
-            if (String.IsNullOrEmpty(folder))
+            if (string.IsNullOrEmpty(folder))
             {
-                transactions = _Corrector.GetRenamingTransactionsForAllSubfolders(suggestionsCount);
+                transactions = corrector.GetRenamingTransactionsForAllSubfolders(count);
                 serializationType = typeof(IEnumerable<IRenamingTransaction>);
             }
             else
             {
-                transactions = _Corrector.GetRenamingTransactions(folder, suggestionsCount);
+                transactions = corrector.GetRenamingTransactions(folder, count);
                 serializationType = typeof(IEnumerable<IRenamingTransactionBase>);
             }
 
             if (transactions is null)
-            {
-                context.Response.StatusCode = HttpStatusCode.BadRequest;
-                await context.Response.SendResponseAsync($"Bad request: Folder \"{folder ?? _Corrector.BaseSheetsFolder}\" does not exist.");
-                return;
-            }
-            context.Response.ContentType = ContentType.Json;
-            await context.Response.SendResponseAsync(JsonSerializer.Serialize(transactions, serializationType));
+                return Results.Text($"Bad request: Folder \"{folder ?? corrector.BaseSheetsFolder}\" does not exist.",
+                    statusCode: StatusCodes.Status400BadRequest);
+
+            var json = JsonSerializer.Serialize(transactions, serializationType);
+            await Task.CompletedTask;
+            return Results.Content(json, "application/json; charset=utf-8");
         }
 
-        [RestRoute("Get", "/count")]
-        [RestRoute("Get", "/{folder}/count")]
-        public async Task GetCount(IHttpContext context)
+        private static IResult GetCount(string? folder, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
         {
-            if (!_Authenticator.ValidateFromContext(context))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Unauthorized);
-                return;
-            }
+            if (!auth.ValidateFromContext(ctx))
+                return Results.Unauthorized();
 
-            if (!_Corrector.ReloadData())
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, $"No songs were loaded from the database.");
-                return;
-            }
+            if (!corrector.ReloadData())
+                return Results.Text("No songs were loaded from the database.", statusCode: StatusCodes.Status500InternalServerError);
 
-            context.Request.PathParameters.TryGetValue("folder", out string? folder);
+            bool isAdmin = auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true"));
+            Guid userId = new Guid(auth.GetClaimValue(ctx, "uuid") ?? Guid.Empty.ToString());
+            var model = new Models.NameCorrectorModel(corrector.DbLoader);
+            if (!model.CanUserRead(isAdmin, userId, ref folder))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            // Kontrola práv uživatele
-            bool isAdmin = _Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true"));
-            Guid userId = new Guid(_Authenticator.GetClaimValue(context, "uuid") ?? Guid.Empty.ToString());
-            if (!_Model.CanUserRead(isAdmin, userId, ref folder))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
-
-            IEnumerable<IRenamingTransaction>? transactions;
-            if (String.IsNullOrEmpty(folder))
-                transactions = _Corrector.GetRenamingTransactionsForAllSubfolders(1);
-            else
-                transactions = _Corrector.GetRenamingTransactions(folder, 1);
+            IEnumerable<IRenamingTransaction>? transactions = string.IsNullOrEmpty(folder)
+                ? corrector.GetRenamingTransactionsForAllSubfolders(1)
+                : corrector.GetRenamingTransactions(folder, 1);
 
             if (transactions is null)
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: Folder \"{folder ?? _Corrector.BaseSheetsFolder}\" does not exist.");
-                return;
-            }
+                return Results.Text($"Bad request: Folder \"{folder ?? corrector.BaseSheetsFolder}\" does not exist.",
+                    statusCode: StatusCodes.Status400BadRequest);
 
-            await context.Response.SendResponseAsync(transactions.Count().ToString());
+            return Results.Text(transactions.Count().ToString());
         }
 
-        [RestRoute("Post", "fix-name")]
-        public async Task FixName(IHttpContext context)
+        private static async Task<IResult> FixName(ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
         {
-            if (!_Authenticator.ValidateFromContext(context))
+            if (!auth.ValidateFromContext(ctx))
+                return Results.Unauthorized();
+
+            bool isAdmin = auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true"));
+            Guid userId = new Guid(auth.GetClaimValue(ctx, "uuid") ?? Guid.Empty.ToString());
+            var model = new Models.NameCorrectorModel(corrector.DbLoader);
+            if (!model.CanUserCommit(isAdmin, userId))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+            PostFixName? request;
+            try
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Unauthorized);
-                return;
+                request = await JsonSerializer.DeserializeAsync<PostFixName>(ctx.Request.Body);
             }
-            
-            // Kontrola práv uživatele
-            bool isAdmin = _Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true"));
-            Guid userId = new Guid(_Authenticator.GetClaimValue(context, "uuid") ?? Guid.Empty.ToString());
-            if (!_Model.CanUserCommit(isAdmin, userId))
+            catch
             {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
+                return Results.BadRequest();
             }
 
-            var request = JsonSerializer.Deserialize(context.Request.InputStream, typeof(RequestClasses.PostFixName)) as RequestClasses.PostFixName;
             if (request is null)
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest);
-                return;
-            }
+                return Results.BadRequest();
 
-            if (String.IsNullOrEmpty(request.FileName) && !request.SuggestionIndex.HasValue)
+            if (string.IsNullOrEmpty(request.FileName) && !request.SuggestionIndex.HasValue)
             {
-                string msg = "Bad request: " 
-                    + "Both \"FileName\" and \"SuggestionIndex\" values are null. One of them must be set.";
+                var msg = new StringBuilder("Bad request: Both \"FileName\" and \"SuggestionIndex\" values are null. One of them must be set.");
                 if (request.TransactionGuid == Guid.Empty)
-                    msg += " Parameter \"TransactionGuid\" is invalid";
-
-                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, msg);
-                return;
+                    msg.Append(" Parameter \"TransactionGuid\" is invalid");
+                return Results.Text(msg.ToString(), statusCode: StatusCodes.Status400BadRequest);
             }
 
-            var response = request.SuggestionIndex.HasValue ? 
-                _Corrector.CommitTransactionByGuid(request.TransactionGuid, (int)request.SuggestionIndex)
-                : _Corrector.CommitTransactionByGuid(request.TransactionGuid, request.FileName!);
+            var response = request.SuggestionIndex.HasValue
+                ? corrector.CommitTransactionByGuid(request.TransactionGuid, (int)request.SuggestionIndex)
+                : corrector.CommitTransactionByGuid(request.TransactionGuid, request.FileName!);
 
             if (!response.Success)
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, response.Message);
-                return;
-            }
+                return Results.Text(response.Message ?? "", statusCode: StatusCodes.Status500InternalServerError);
 
-            context.Response.ContentType = ContentType.Json;
-            await context.Response.SendResponseAsync();
+            return Results.Ok();
         }
 
-        [RestRoute("Delete", "{transaction}")]
-        public async Task DeleteFile(IHttpContext context)
+        private static IResult DeleteFile(string transaction, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
         {
-            if (!_Authenticator.ValidateFromContext(context))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Unauthorized);
-                return;
-            }
+            if (!auth.ValidateFromContext(ctx))
+                return Results.Unauthorized();
 
-            // Kontrola práv uživatele
-            bool isAdmin = _Authenticator.ValidateFromContext(context, new Claim("NsmAdmin", "true"));
-            Guid userId = new Guid(_Authenticator.GetClaimValue(context, "uuid") ?? Guid.Empty.ToString());
-            if (!_Model.CanUserCommit(isAdmin, userId))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Forbidden);
-                return;
-            }
+            bool isAdmin = auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true"));
+            Guid userId = new Guid(auth.GetClaimValue(ctx, "uuid") ?? Guid.Empty.ToString());
+            var model = new Models.NameCorrectorModel(corrector.DbLoader);
+            if (!model.CanUserCommit(isAdmin, userId))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            context.Request.PathParameters.TryGetValue("transaction", out string? guidString);
-            if (!Guid.TryParse(guidString, out Guid guid))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: Parameter \"{guidString}\" is not valid Guid.");
-                return;
-            }
+            if (!Guid.TryParse(transaction, out Guid guid))
+                return Results.Text($"Bad request: Parameter \"{transaction}\" is not valid Guid.",
+                    statusCode: StatusCodes.Status400BadRequest);
 
-            var response = _Corrector.DeleteTransaction(guid);
-
+            var response = corrector.DeleteTransaction(guid);
             if (!response.Success)
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.InternalServerError, response.Message);
-                return;
-            }
+                return Results.Text(response.Message ?? "", statusCode: StatusCodes.Status500InternalServerError);
 
-            context.Response.StatusCode = HttpStatusCode.Ok;
-            await context.Response.SendResponseAsync();
+            return Results.Ok();
         }
 
-        [RestRoute("Get", "/file-exists/{transaction}/{fileName}")]
-        public async Task CheckFileExists(IHttpContext context)
+        private static IResult CheckFileExists(string transaction, string fileName,
+            ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
         {
-            if (!_Authenticator.ValidateFromContext(context))
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.Unauthorized);
-                return;
-            }
+            if (!auth.ValidateFromContext(ctx))
+                return Results.Unauthorized();
 
-            StringBuilder errorMsg = new StringBuilder();
+            var errorMsg = new StringBuilder();
+            if (!Guid.TryParse(transaction, out Guid guid))
+                errorMsg.AppendLine($"Parameter \"{transaction}\" is not valid Guid.");
 
-            context.Request.PathParameters.TryGetValue("transaction", out string? guidString);
-            if (!Guid.TryParse(guidString, out Guid guid))
-                errorMsg.AppendLine($"Parameter \"{guidString}\" is not valid Guid.");
-
-            var trans = _Corrector.GetTransactionByGuid(guid);
+            var trans = corrector.GetTransactionByGuid(guid);
             if (trans is null)
                 errorMsg.AppendLine($"Transaction \"{guid}\" does not exist.");
 
-            if(errorMsg.Length > 0)
-            {
-                await context.Response.SendResponseAsync(HttpStatusCode.BadRequest, $"Bad request: " + errorMsg.ToString());
-                return;
-            }
+            if (errorMsg.Length > 0)
+                return Results.Text($"Bad request: {errorMsg}", statusCode: StatusCodes.Status400BadRequest);
 
-            context.Request.PathParameters.TryGetValue("fileName", out string? fileName);
-            IRenamingSuggestion suggestion = new Suggestion(trans!.InvalidFullPath, fileName ?? "", 0);
-            context.Response.ContentType = ContentType.Json;
-            await context.Response.SendResponseAsync(JsonSerializer.Serialize(suggestion));
+            IRenamingSuggestion suggestion = new Suggestion(trans!.InvalidFullPath, fileName, 0);
+            return Results.Json(suggestion);
         }
     }
 }

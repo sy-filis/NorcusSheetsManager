@@ -55,8 +55,7 @@ namespace NorcusSheetsManager
         public bool CropImage { get; set; } = true;
         static Converter()
         {
-            string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            MagickNET.SetGhostscriptDirectory(assemblyDir);
+            MagickNET.SetGhostscriptDirectory(AppContext.BaseDirectory);
         }
         public Converter()
         {
@@ -143,7 +142,7 @@ namespace NorcusSheetsManager
             string fullPath = pdfFile.FullName.Replace("\\", "/");
             ProcessStartInfo startInfo = new ProcessStartInfo()
             {
-                FileName = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "gswin64c.exe"),
+                FileName = Path.Combine(AppContext.BaseDirectory, "gswin64c.exe"),
                 Arguments = $"-q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT --permit-file-read=\"{fullPath}\" -sPDFPassword=\"\" -c \"({fullPath}) (r) file runpdfbegin pdfpagecount = quit\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
