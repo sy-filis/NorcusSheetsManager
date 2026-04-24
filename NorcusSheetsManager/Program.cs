@@ -1,85 +1,240 @@
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
+using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using NorcusSheetsManager;
-using NorcusSheetsManager.NameCorrector;
+using System.Text.Json;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
+using Asp.Versioning.Builder;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
+using NorcusSheetsManager.Application;
+using NorcusSheetsManager.Application.Configuration;
+using NorcusSheetsManager.Infrastructure;
+using NorcusSheetsManager.Infrastructure.Configuration;
+using NorcusSheetsManager.Web.Api;
+using NorcusSheetsManager.Web.Api.Extensions;
 
-namespace AutoPdfToImage;
+namespace NorcusSheetsManager;
 
 internal class Program
 {
+  public const string ServiceName = "NorcusSheetsManager";
+  public const string ServiceDisplayName = "Norcus Sheets Manager";
   public static readonly string VERSION = _GetVersion();
-  private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
-  private static void Main(string[] args)
+
+  private static async Task<int> Main(string[] args)
   {
-    try
+    if (args.Length > 0)
     {
-      Console.WriteLine("Norcus Sheets Manager " + VERSION);
-      Console.WriteLine("-------------------------");
-      var manager = new Manager();
-      manager.FullScan();
-      manager.StartWatching(true);
-      if (manager.Config.Converter.AutoScan)
+      switch (args[0])
       {
-        manager.AutoFullScan(60000, 5);
+        case "--install-service": return _InstallService();
+        case "--uninstall-service": return _UninstallService();
+        case "--help":
+        case "-h":
+        case "/?":
+          _PrintUsage();
+          return 0;
       }
-
-      string commandMessage = """
-                  Commands:
-                      S -- Scan all PDF files (checks whether all PDFs have any image)
-                      D -- Deep scan (checks image files count vs PDF page count)
-                      F -- Force convert (converts all PDF files)
-                      C|N -- Correct invalid file Names
-                      X|T -- sTop program
-              """;
-
-      Console.WriteLine(commandMessage);
-
-      bool @continue = true;
-      while (@continue)
-      {
-        switch (Console.ReadKey(true).Key.ToString())
-        {
-          case "S":
-            manager.FullScan();
-            break;
-          case "D":
-            manager.DeepScan();
-            break;
-          case "F":
-            Console.WriteLine("Are you sure? (Y/N)");
-            if (Console.ReadKey(true).Key.ToString() == "Y")
-            {
-              manager.ForceConvertAll();
-            }
-
-            break;
-          case "C":
-          case "N":
-            CorrectNames(manager);
-            break;
-          case "T":
-          case "X":
-            @continue = false;
-            break;
-          default:
-            break;
-        }
-        Console.WriteLine(commandMessage);
-      }
-      ;
     }
-    catch (Exception e)
-    {
-      Logger.Error(e, _logger);
-      Console.ReadLine();
-    }
+
+    AppConfig config = ConfigLoader.Load();
+    WebApplication app = _BuildApp(args, config);
+    await app.RunAsync();
+    return 0;
   }
+
+  private static WebApplication _BuildApp(string[] args, AppConfig config)
+  {
+    WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+    builder.Logging.ClearProviders();
+    builder.Logging.AddNLog("NLog.config");
+
+    builder.Services.AddWindowsService(o => o.ServiceName = ServiceName);
+    builder.Services.AddSystemd();
+
+    builder.Services.AddApplication();
+    builder.Services.AddInfrastructure(config);
+
+    if (config.ApiServer.RunServer)
+    {
+      builder.ConfigureWebHost(config.ApiServer);
+      builder.Services.AddWebApi(config.ApiServer);
+      builder.Services.AddEndpoints(typeof(Web.Api.DependencyInjection).Assembly);
+    }
+
+    WebApplication app = builder.Build();
+    ILogger<Program> logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+    if (config.ApiServer.RunServer)
+    {
+      app.UseExceptionHandler();
+      app.UseStatusCodePages();
+      app.UseCors();
+
+      ApiVersionSet versionSet = app.NewApiVersionSet()
+          .HasApiVersion(new ApiVersion(1, 0))
+          .ReportApiVersions()
+          .Build();
+
+      RouteGroupBuilder apiGroup = app
+          .MapGroup("api/v{version:apiVersion}")
+          .WithApiVersionSet(versionSet);
+
+      app.MapEndpoints(apiGroup);
+
+      app.UseSwagger();
+      app.UseSwaggerUI(o =>
+      {
+        IApiVersionDescriptionProvider provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+        foreach (ApiVersionDescription description in provider.ApiVersionDescriptions.Reverse())
+        {
+          o.SwaggerEndpoint(
+              $"/swagger/{description.GroupName}/swagger.json",
+              $"Norcus Sheets Manager API {description.GroupName.ToUpperInvariant()}");
+        }
+        o.DocumentTitle = "Norcus Sheets Manager API";
+        o.RoutePrefix = "swagger";
+      });
+
+      app.MapHealthChecks("/health", new HealthCheckOptions
+      {
+        ResponseWriter = _WriteHealthReportJson,
+      });
+
+      logger.LogInformation(
+          "Norcus Sheets Manager {Version} started — API at {Url}, Swagger at {Url}/swagger, health at {Url}/health.",
+          VERSION, config.ApiServer.Url, config.ApiServer.Url, config.ApiServer.Url);
+    }
+    else
+    {
+      logger.LogInformation("Norcus Sheets Manager {Version} started — file watcher only (API disabled by config).", VERSION);
+    }
+
+    return app;
+  }
+
+  private static Task _WriteHealthReportJson(HttpContext ctx, HealthReport report)
+  {
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    var payload = new
+    {
+      status = report.Status.ToString(),
+      totalDuration = report.TotalDuration,
+      entries = report.Entries.ToDictionary(
+          e => e.Key,
+          e => new
+          {
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description,
+            duration = e.Value.Duration,
+            data = e.Value.Data,
+            exception = e.Value.Exception?.Message,
+          }),
+    };
+    string json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+    return ctx.Response.WriteAsync(json);
+  }
+
+  private static int _InstallService()
+  {
+    if (!OperatingSystem.IsWindows())
+    {
+      Console.Error.WriteLine("Windows service installation is only supported on Windows. On Linux use systemd or Docker.");
+      return 1;
+    }
+
+    string? exePath = Environment.ProcessPath;
+    if (string.IsNullOrEmpty(exePath))
+    {
+      Console.Error.WriteLine("Cannot determine executable path.");
+      return 1;
+    }
+
+    int code = _RunSc("create", ServiceName, "binPath=", exePath, "start=", "auto", "DisplayName=", ServiceDisplayName);
+    if (code == 0)
+    {
+      Console.WriteLine($"Service '{ServiceName}' installed. Start with:  sc start {ServiceName}");
+    }
+    else
+    {
+      Console.Error.WriteLine("Service installation failed. Run from an elevated (Administrator) prompt.");
+    }
+    return code;
+  }
+
+  private static int _UninstallService()
+  {
+    if (!OperatingSystem.IsWindows())
+    {
+      Console.Error.WriteLine("Windows service uninstallation is only supported on Windows.");
+      return 1;
+    }
+
+    int code = _RunSc("delete", ServiceName);
+    if (code != 0)
+    {
+      Console.Error.WriteLine("Service uninstallation failed. Run from an elevated (Administrator) prompt.");
+    }
+    return code;
+  }
+
+  private static int _RunSc(params string[] arguments)
+  {
+    var startInfo = new ProcessStartInfo
+    {
+      FileName = "sc.exe",
+      UseShellExecute = false,
+      RedirectStandardOutput = true,
+      RedirectStandardError = true,
+    };
+    foreach (string arg in arguments)
+    {
+      startInfo.ArgumentList.Add(arg);
+    }
+
+    using Process? proc = Process.Start(startInfo);
+    if (proc is null)
+    {
+      Console.Error.WriteLine("Failed to start sc.exe.");
+      return 1;
+    }
+    proc.WaitForExit();
+    Console.Write(proc.StandardOutput.ReadToEnd());
+    Console.Error.Write(proc.StandardError.ReadToEnd());
+    return proc.ExitCode;
+  }
+
+  private static void _PrintUsage()
+  {
+    Console.WriteLine($$"""
+        Norcus Sheets Manager {{VERSION}}
+
+        Usage:
+          NorcusSheetsManager                        Run as daemon (file watcher + REST API).
+                                                     Drive via the API; Swagger UI at /swagger.
+          NorcusSheetsManager --install-service      Install as Windows service (requires admin).
+          NorcusSheetsManager --uninstall-service    Uninstall the Windows service (requires admin).
+          NorcusSheetsManager --help                 Show this help.
+
+        REST API (default URL: http://0.0.0.0:4434):
+          /api/v1/folders                            GET  list sheet folders
+          /api/v1/corrector/...                      GET/POST/DELETE  name-correction endpoints
+          /api/v1/manager/{scan|deep-scan|convert-all}  POST  trigger scans
+          /api/v1/corrector/auto-fix                 POST  commit top suggestion for every invalid filename
+          /api/v1/app/shutdown                       POST  stop the application
+          /health                                    GET  health report as JSON
+          /swagger                                   GET  interactive API documentation
+        """);
+  }
+
   private static string _GetVersion()
   {
     string version = Assembly.GetEntryAssembly()?.GetName()?.Version?.ToString() ?? "";
@@ -88,54 +243,5 @@ internal class Program
       version = version.Substring(0, version.Length - 1);
     }
     return version;
-  }
-  private static void CorrectNames(Manager manager)
-  {
-    Console.WriteLine("--------------------");
-    Console.WriteLine("File name corrector:");
-    Console.WriteLine("--------------------");
-    manager.NameCorrector.ReloadData();
-    IEnumerable<IRenamingTransaction>? transactions = manager.NameCorrector.GetRenamingTransactionsForAllSubfolders(1);
-
-    if (transactions is null || !transactions.Any())
-    {
-      Console.WriteLine("No incorrectly named files were found.");
-      Console.WriteLine("--------------------------------------");
-      return;
-    }
-
-    Console.WriteLine("Invalid file names and suggestions:");
-    foreach (IRenamingTransaction trans in transactions)
-    {
-      IRenamingSuggestion? suggestion = trans.Suggestions.FirstOrDefault();
-      Console.WriteLine($"{trans.InvalidFullPath} -> " +
-          (suggestion is null ? "<NO SUGGESTION>" : $"{Path.GetFileNameWithoutExtension(suggestion?.FullPath)}") +
-          ((suggestion?.FileExists ?? false) ? " (FILE EXISTS!)" : ""));
-    }
-    if (transactions.Count() == 0)
-    {
-      return;
-    }
-
-    Console.WriteLine("Correct all file names? (Y/N)");
-    if (Console.ReadKey(true).Key.ToString().Equals("Y"))
-    {
-      manager.StopWatching();
-      foreach (IRenamingTransaction trans in transactions)
-      {
-        ITransactionResponse response = trans.Commit(0);
-        if (!response.Success)
-        {
-          Console.WriteLine(response.Message);
-        }
-      }
-      manager.StartWatching();
-      Console.WriteLine("File names correction finished.");
-    }
-    else
-    {
-      Console.WriteLine("File names correction aborted.");
-    }
-    Console.WriteLine("-----------------------------------------");
   }
 }

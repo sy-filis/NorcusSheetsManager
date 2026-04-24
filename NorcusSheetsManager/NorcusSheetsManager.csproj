@@ -20,12 +20,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="F23.StringSimilarity" />
-    <PackageReference Include="Magick.NET-Q8-x64" />
-    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
     <PackageReference Include="NLog" />
     <PackageReference Include="NLog.Extensions.Logging" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NorcusSheetsManager.Application\NorcusSheetsManager.Application.csproj" />
+    <ProjectReference Include="..\NorcusSheetsManager.Infrastructure\NorcusSheetsManager.Infrastructure.csproj" />
+    <ProjectReference Include="..\NorcusSheetsManager.SharedKernel\NorcusSheetsManager.SharedKernel.csproj" />
+    <ProjectReference Include="..\NorcusSheetsManager.Web.Api\NorcusSheetsManager.Web.Api.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

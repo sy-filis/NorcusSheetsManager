@@ -32,4 +32,4 @@ EXPOSE 4434
 
 # NorcusSheetsManagerCfg.xml and NLog's debug.log/error.log live next to the
 # binary. Mount a volume at /app (or rebind specific files) to persist them.
-ENTRYPOINT ["./NorcusSheetsManager"]
+ENTRYPOINT ["./NorcusSheetsManager", "--daemon"]

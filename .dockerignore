@@ -7,6 +7,7 @@
 **/*.suo
 publish-test/
 publish/
+_reference/
 .git/
 .gitignore
 .gitattributes

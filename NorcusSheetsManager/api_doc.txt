@@ -79,6 +79,17 @@ POST: api/v1/manager/convert-all
 	- spustí funkci Convert All (znovu převede všechny PDF do obrázků - může trvat delší dobu)
 	- Požadavky: NsmAdmin == "true"
 
+POST: api/v1/corrector/auto-fix
+	-> AutoFixInvalidNamesResponse { TotalCount, FixedCount, Failures : string[] }
+	- projde všechny chybně pojmenované soubory a commituje první návrh (nejbližší shodu) pro každý
+	- odpovídá interaktivnímu příkazu C/N
+	- Požadavky: NsmAdmin == "true"
+
+POST: api/v1/app/shutdown
+	- ukončí aplikaci (volá IHostApplicationLifetime.StopApplication)
+	- odpovídá interaktivnímu příkazu X/T; použijte s parametrem --no-console, kdy klávesové ovládání není k dispozici
+	- Požadavky: NsmAdmin == "true"
+
 Interfaces:
 -----------	
 IRenamingTransactionBase {
