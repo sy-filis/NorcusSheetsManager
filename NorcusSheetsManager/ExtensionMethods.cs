@@ -13,7 +13,7 @@ internal static class ExtensionMethods
     var sb = new StringBuilder();
     foreach (T item in list)
     {
-      sb.Append(item.ToString());
+      sb.Append(item?.ToString() ?? "");
       sb.Append(separator);
     }
     sb.Remove(sb.Length - separator.Length, separator.Length);

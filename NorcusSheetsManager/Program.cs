@@ -97,7 +97,7 @@ internal class Program
     manager.NameCorrector.ReloadData();
     var transactions = manager.NameCorrector.GetRenamingTransactionsForAllSubfolders(1);
 
-    if (transactions.Count() == 0)
+    if (transactions is null || !transactions.Any())
     {
       Console.WriteLine("No incorrectly named files were found.");
       Console.WriteLine("--------------------------------------");

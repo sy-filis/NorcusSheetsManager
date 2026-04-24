@@ -81,7 +81,7 @@ public class Converter
 
     Logger.Debug($"Converting {pdfFile.FullName} into {OutFileFormat} image.", _logger);
 
-    string outFileNoExt = Path.Combine(pdfFile.Directory.FullName, Path.GetFileNameWithoutExtension(pdfFile.FullName));
+    string outFileNoExt = Path.Combine(pdfFile.Directory!.FullName, Path.GetFileNameWithoutExtension(pdfFile.FullName));
     string outExtension = "." + OutFileFormat.ToString().ToLower();
     var result = new List<FileInfo>();
 
@@ -156,6 +156,11 @@ public class Converter
       CreateNoWindow = true
     };
     var proc = Process.Start(startInfo);
+    if (proc is null)
+    {
+      pageCount = 0;
+      return false;
+    }
     bool success = int.TryParse(proc.StandardOutput.ReadToEnd(), out pageCount);
 
     return success && pageCount > 0;

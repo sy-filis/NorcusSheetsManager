@@ -127,7 +127,7 @@ public static class GDriveFix
       }
     }
     private string __fullFilePath;
-    public string Directory { get; set; }
+    public string Directory { get; set; } = "";
     public int Version { get; private set; }
     public GDriveFile(string fullFileName)
     {
@@ -140,7 +140,7 @@ public static class GDriveFix
     {
       FileName = Path.GetFileName(FullFileName);
       Extension = Path.GetExtension(FullFileName);
-      Directory = Path.GetDirectoryName(FullFileName);
+      Directory = Path.GetDirectoryName(FullFileName) ?? "";
       Match basicMatch = Regex.Match(FileName, VerPattern);
 
       if (!basicMatch.Success)

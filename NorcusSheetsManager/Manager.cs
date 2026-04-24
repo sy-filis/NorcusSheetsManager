@@ -76,7 +76,7 @@ internal class Manager
   private List<FileSystemWatcher> _CreateFileSystemWatchers()
   {
     List<FileSystemWatcher> _fileSystemWatchers = new();
-    string[] directories = Directory.GetDirectories(Config.SheetsPath);
+    string[] directories = Directory.GetDirectories(Config.SheetsPath!);
     foreach (string dir in directories)
     {
       var watcher = new FileSystemWatcher
@@ -237,8 +237,12 @@ internal class Manager
         }
         ;
 
-        var pdfFileParentDir = new FileInfo(
-            Path.Combine(Directory.GetParent(pdfFile.Directory.FullName).FullName, pdfFile.Name));
+        DirectoryInfo? parent = Directory.GetParent(pdfFile.Directory!.FullName);
+        if (parent is null)
+        {
+          continue;
+        }
+        var pdfFileParentDir = new FileInfo(Path.Combine(parent.FullName, pdfFile.Name));
         int fileCount = _GetImagesForPdf(pdfFileParentDir).Length;
         if (pageCount == fileCount)
         {
@@ -286,7 +290,16 @@ internal class Manager
       // Pokud je povoleno přesouvání PDFka do podsložky, přesunu PDFka z podsložek do složky o úroveň výš.
       foreach (var archivePdf in archivePdfFiles)
       {
-        var pdfInParentDir = new FileInfo(Path.Combine(Directory.GetParent(archivePdf.DirectoryName).FullName, archivePdf.Name));
+        if (archivePdf.DirectoryName is null)
+        {
+          continue;
+        }
+        DirectoryInfo? parent = Directory.GetParent(archivePdf.DirectoryName);
+        if (parent is null)
+        {
+          continue;
+        }
+        var pdfInParentDir = new FileInfo(Path.Combine(parent.FullName, archivePdf.Name));
         if (!pdfInParentDir.Exists)
         {
           File.Move(archivePdf.FullName, pdfInParentDir.FullName);
@@ -318,7 +331,7 @@ internal class Manager
       StopWatching();
     }
 
-    GDriveFix.FixAllFiles(Config.SheetsPath, SearchOption.AllDirectories, false, Config.WatchedExtensions);
+    GDriveFix.FixAllFiles(Config.SheetsPath!, SearchOption.AllDirectories, false, Config.WatchedExtensions);
     if (isWatcherActive)
     {
       StartWatching();
@@ -357,6 +370,10 @@ internal class Manager
       return;
     }
 
+    if (e.OldName is null || e.Name is null)
+    {
+      return;
+    }
     var images = _GetImagesForPdf(new FileInfo(e.OldFullPath));
     _RenameImages(images, e.OldName, e.Name);
   }
@@ -421,7 +438,7 @@ internal class Manager
 
   private FileInfo[] _GetImagesForPdf(FileInfo pdfFile)
   {
-    string dir = pdfFile.Directory.FullName;
+    string dir = pdfFile.Directory!.FullName;
     string name = Path.GetFileNameWithoutExtension(pdfFile.Name);
     string ext = "." + Config.OutFileFormat.ToString().ToLower();
     string pattern = $".*{Regex.Escape(name)}({Config.MultiPageDelimiter}\\d*)?(\\s\\(\\d+\\))?\\{ext}";
@@ -482,7 +499,11 @@ internal class Manager
       string newNameNoExt = Path.GetFileNameWithoutExtension(newName);
       foreach (var image in images)
       {
-        string dir = Path.GetDirectoryName(image.FullName);
+        string? dir = Path.GetDirectoryName(image.FullName);
+        if (dir is null)
+        {
+          continue;
+        }
         string name = Path.GetFileName(image.FullName);
         string newPath = Path.Combine(dir, name.Replace(oldNameNoExt, newNameNoExt));
 
@@ -526,7 +547,12 @@ internal class Manager
     }
 
     string sourceFile = pdfFile.FullName;
-    string newPath = Path.Combine(Path.GetDirectoryName(pdfFile.FullName), Config.PdfSubfolder);
+    string? pdfDir = Path.GetDirectoryName(pdfFile.FullName);
+    if (pdfDir is null)
+    {
+      return;
+    }
+    string newPath = Path.Combine(pdfDir, Config.PdfSubfolder);
     if (!Directory.Exists(newPath))
     {
       Directory.CreateDirectory(newPath);
@@ -546,7 +572,7 @@ internal class Manager
   }
   private IEnumerable<FileInfo> _GetPdfFiles(bool filesInPdfSubfolder)
   {
-    string[] directories = Directory.GetDirectories(Config.SheetsPath);
+    string[] directories = Directory.GetDirectories(Config.SheetsPath!);
     var pdfFiles = new List<FileInfo>();
 
     foreach (string dir in directories)

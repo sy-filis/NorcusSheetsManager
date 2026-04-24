@@ -9,7 +9,7 @@ namespace NorcusSheetsManager;
 
 public interface IConfig
 {
-  string SheetsPath { get; set; }
+  string? SheetsPath { get; set; }
   bool AutoScan { get; set; }
   MagickFormat OutFileFormat { get; set; }
   string MultiPageDelimiter { get; set; }
