@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -21,15 +20,23 @@ internal sealed class AutoFixInvalidNames : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken) =>
     {
-      if (!auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true")))
+      IResult? authFailure = auth.RequireAdmin(ctx);
+      if (authFailure is not null)
       {
-        return Results.StatusCode(StatusCodes.Status403Forbidden);
+        return authFailure;
       }
 
       var command = new AutoFixInvalidNamesCommand { IsAdmin = true, UserId = Guid.Empty };
       Result<AutoFixInvalidNamesResponse> result = await handler.Handle(command, cancellationToken);
       return result.Match(Results.Ok, CustomResults.Problem);
     })
-    .WithTags(Tags.Corrector);
+    .WithTags(Tags.Corrector)
+    .Produces<AutoFixInvalidNamesResponse>(StatusCodes.Status200OK)
+    .WithResponseExample(StatusCodes.Status200OK, new AutoFixInvalidNamesResponse(
+        TotalCount: 5,
+        FixedCount: 4,
+        Failures: ["teri/unknown_song-??.pdf"]))
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden);
   }
 }

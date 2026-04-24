@@ -412,6 +412,8 @@ internal class Manager : IScanService, IWatcherControl
 
   /// <summary>
   /// If no images exist for the PDF, or they are older than the PDF, deletes them and reconverts the PDF.
+  /// After a successful reconversion, also sweeps any stray files that share the PDF's base name —
+  /// old images in a different extension, leftover pages from a larger previous version of the PDF, etc.
   /// </summary>
   /// <param name="forceDeleteAndConvert">Deletes every file belonging to the PDF and always reconverts.</param>
   /// <returns>True if a conversion ran.</returns>
@@ -431,8 +433,12 @@ internal class Manager : IScanService, IWatcherControl
       }
       if (images.Length == 0 || imgsAreOlder || forceDeleteAndConvert)
       {
-        IEnumerable<FileInfo> createdImages = _Converter.Convert(pdfFile);
-        _SyncFileTimes(pdfFile, createdImages);
+        List<FileInfo> createdImages = _Converter.Convert(pdfFile).ToList();
+        if (createdImages.Count > 0)
+        {
+          _SyncFileTimes(pdfFile, createdImages);
+          _DeleteOrphanedImages(pdfFile, createdImages);
+        }
         if (Config.Converter.MovePdfToSubfolder)
         {
           _MovePdfToSubfolder(pdfFile);
@@ -445,6 +451,50 @@ internal class Manager : IScanService, IWatcherControl
     {
       _logger.LogError(ex, "Failed to convert {File}.", pdfFile.FullName);
       return false;
+    }
+  }
+
+  /// <summary>
+  /// After a fresh conversion, delete any file in the PDF's folder whose base name matches
+  /// the <c>{pdfBase}(-\d+)?(\s\(\d+\))?</c> shape but isn't part of the just-written set.
+  /// Covers two scenarios the primary _GetImagesForPdf lookup misses:
+  /// <list type="bullet">
+  ///   <item><description>OutFileFormat changed between runs (e.g. .jpg → .png); old files remain because _GetImagesForPdf only finds the current extension.</description></item>
+  ///   <item><description>A multi-page PDF shrank (10 pages → 5 pages) and the current OutFileFormat matched, but the earlier deletion was driven by imgsAreOlder which may not fire on every code path.</description></item>
+  /// </list>
+  /// </summary>
+  private void _DeleteOrphanedImages(FileInfo pdfFile, IEnumerable<FileInfo> freshImages)
+  {
+    string dir = pdfFile.Directory!.FullName;
+    string name = Path.GetFileNameWithoutExtension(pdfFile.Name);
+    var keep = new HashSet<string>(freshImages.Select(f => f.FullName), StringComparer.OrdinalIgnoreCase);
+
+    string orphanPattern = $@"^{Regex.Escape(name)}({Regex.Escape(Config.Converter.MultiPageDelimiter)}\d+)?(\s\(\d+\))?\.[^.]+$";
+    var rx = new Regex(orphanPattern, RegexOptions.IgnoreCase);
+
+    foreach (string candidate in Directory.GetFiles(dir, $"{name}*", SearchOption.TopDirectoryOnly))
+    {
+      if (keep.Contains(candidate))
+      {
+        continue;
+      }
+      if (string.Equals(Path.GetExtension(candidate), ".pdf", StringComparison.OrdinalIgnoreCase))
+      {
+        continue;
+      }
+      if (!rx.IsMatch(Path.GetFileName(candidate)))
+      {
+        continue;
+      }
+      try
+      {
+        File.Delete(candidate);
+        _logger.LogDebug("Deleted orphaned image {File}.", candidate);
+      }
+      catch (Exception ex)
+      {
+        _logger.LogWarning(ex, "Failed to delete orphaned {File}.", candidate);
+      }
     }
   }
 

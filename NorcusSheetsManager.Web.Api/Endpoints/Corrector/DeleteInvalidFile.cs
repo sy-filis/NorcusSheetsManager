@@ -43,6 +43,10 @@ internal sealed class DeleteInvalidFile : IEndpoint
       Result result = await handler.Handle(command, cancellationToken);
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
-    .WithTags(Tags.Corrector);
+    .WithTags(Tags.Corrector)
+    .Produces(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status404NotFound);
   }
 }

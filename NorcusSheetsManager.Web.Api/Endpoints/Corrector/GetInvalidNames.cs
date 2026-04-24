@@ -14,6 +14,21 @@ namespace NorcusSheetsManager.Web.Api.Endpoints.Corrector;
 
 internal sealed class GetInvalidNames : IEndpoint
 {
+  private static readonly object[] _Example =
+  [
+    new
+    {
+      TransactionGuid = "8a7f5a4e-3d2c-4b1a-9f0e-6a7b8c9d0e1f",
+      Folder = "teri",
+      InvalidFileName = "Hot___cold-Kate_Perry.jpg",
+      Suggestions = new[]
+      {
+        new { FileName = "hot_n_cold-kate_perry", FileExists = true },
+        new { FileName = "hot_cold-kate_perry", FileExists = false },
+      },
+    },
+  ];
+
   public void MapEndpoint(IEndpointRouteBuilder app)
   {
     app.MapGet("corrector/invalid-names/{suggestionsCount:int?}", (
@@ -23,7 +38,10 @@ internal sealed class GetInvalidNames : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken)
             => HandleAsync(null, suggestionsCount, auth, handler, ctx, cancellationToken))
-      .WithTags(Tags.Corrector);
+      .WithTags(Tags.Corrector)
+      .Produces<object[]>(StatusCodes.Status200OK)
+      .WithResponseExample(StatusCodes.Status200OK, _Example)
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
 
     app.MapGet("corrector/{folder}/invalid-names/{suggestionsCount:int?}", (
         string folder,
@@ -33,7 +51,10 @@ internal sealed class GetInvalidNames : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken)
             => HandleAsync(folder, suggestionsCount, auth, handler, ctx, cancellationToken))
-      .WithTags(Tags.Corrector);
+      .WithTags(Tags.Corrector)
+      .Produces<object[]>(StatusCodes.Status200OK)
+      .WithResponseExample(StatusCodes.Status200OK, _Example)
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
   }
 
   private static async Task<IResult> HandleAsync(

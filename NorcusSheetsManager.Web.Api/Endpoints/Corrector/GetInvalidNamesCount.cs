@@ -12,6 +12,8 @@ namespace NorcusSheetsManager.Web.Api.Endpoints.Corrector;
 
 internal sealed class GetInvalidNamesCount : IEndpoint
 {
+  public sealed record Response(int Count);
+
   public void MapEndpoint(IEndpointRouteBuilder app)
   {
     app.MapGet("corrector/count", (
@@ -20,7 +22,10 @@ internal sealed class GetInvalidNamesCount : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken)
             => HandleAsync(null, auth, handler, ctx, cancellationToken))
-      .WithTags(Tags.Corrector);
+      .WithTags(Tags.Corrector)
+      .Produces<Response>(StatusCodes.Status200OK)
+      .WithResponseExample(StatusCodes.Status200OK, new Response(7))
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
 
     app.MapGet("corrector/{folder}/count", (
         string folder,
@@ -29,7 +34,10 @@ internal sealed class GetInvalidNamesCount : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken)
             => HandleAsync(folder, auth, handler, ctx, cancellationToken))
-      .WithTags(Tags.Corrector);
+      .WithTags(Tags.Corrector)
+      .Produces<Response>(StatusCodes.Status200OK)
+      .WithResponseExample(StatusCodes.Status200OK, new Response(3))
+      .ProducesProblem(StatusCodes.Status401Unauthorized);
   }
 
   private static async Task<IResult> HandleAsync(
@@ -53,6 +61,6 @@ internal sealed class GetInvalidNamesCount : IEndpoint
     };
 
     Result<int> result = await handler.Handle(query, cancellationToken);
-    return result.Match(count => Results.Text(count.ToString()), CustomResults.Problem);
+    return result.Match(count => Results.Ok(new Response(count)), CustomResults.Problem);
   }
 }

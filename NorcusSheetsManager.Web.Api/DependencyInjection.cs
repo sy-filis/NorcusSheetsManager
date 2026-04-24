@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.OpenApi.Models;
 using NorcusSheetsManager.Application.Configuration;
 using NorcusSheetsManager.Web.Api.Authentication;
 using NorcusSheetsManager.Web.Api.Infrastructure;
@@ -43,35 +42,10 @@ public static class DependencyInjection
       o.SubstituteApiVersionInUrl = true;
     });
 
-    services.AddEndpointsApiExplorer();
-    services.AddSwaggerGen(c =>
+    services.AddOpenApi(o =>
     {
-      c.SwaggerDoc("v1", new OpenApiInfo
-      {
-        Title = "Norcus Sheets Manager API",
-        Version = "v1",
-        Description = "PDF→image sync, file-name corrector and admin endpoints for the Norcus sheet-music library."
-      });
-
-      var bearerScheme = new OpenApiSecurityScheme
-      {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Paste the JWT (without the \"Bearer \" prefix).",
-        Reference = new OpenApiReference
-        {
-          Type = ReferenceType.SecurityScheme,
-          Id = "Bearer",
-        }
-      };
-      c.AddSecurityDefinition("Bearer", bearerScheme);
-      c.AddSecurityRequirement(new OpenApiSecurityRequirement
-      {
-        [bearerScheme] = Array.Empty<string>()
-      });
+      o.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+      o.AddOperationTransformer<ResponseExamplesTransformer>();
     });
 
     return services;

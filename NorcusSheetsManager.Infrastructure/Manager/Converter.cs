@@ -95,9 +95,16 @@ public class Converter
 
       if (images.Count == 1)
       {
-        _ModifyImage(images[0]);
-        images[0].Write(outFileNoExt + outExtension, OutFileFormat);
-        result.Add(new FileInfo(outFileNoExt + outExtension));
+        if (_IsBlankPage(images[0]))
+        {
+          _logger.LogDebug("Page of {File} appears blank; skipping image output.", pdfFile.FullName);
+        }
+        else
+        {
+          _ModifyImage(images[0]);
+          images[0].Write(outFileNoExt + outExtension, OutFileFormat);
+          result.Add(new FileInfo(outFileNoExt + outExtension));
+        }
       }
       else if (images.Count > 1)
       {
@@ -105,6 +112,12 @@ public class Converter
         foreach (IMagickImage<byte> image in images)
         {
           image.Format = OutFileFormat;
+          if (_IsBlankPage(image))
+          {
+            _logger.LogDebug("Page {Page} of {File} appears blank; skipping image output.", page, pdfFile.FullName);
+            page++;
+            continue;
+          }
           _ModifyImage(image);
           string fname = outFileNoExt + MultiPageDelimiter + _GetCounter(page) + outExtension;
           image.Write(fname, OutFileFormat);
@@ -177,5 +190,27 @@ public class Converter
       uint newHeight = System.Convert.ToUInt32(image.Height * 1.01);
       image.Extent(newWidth, newHeight, Gravity.Center);
     }
+  }
+
+  /// <summary>
+  /// An empty PDF page renders as a single-colour bitmap — every pixel is the background
+  /// colour, so the per-channel standard deviation is essentially zero. Real content
+  /// (even a single staff line) has visible variance. Threshold is in Q8 quantum units
+  /// (0..255); ~0.8% allows for JPEG dithering while staying well below any actual ink.
+  /// </summary>
+  private static bool _IsBlankPage(IMagickImage image)
+  {
+    const double stdDevThreshold = 2.0;
+
+    IStatistics stats = image.Statistics();
+    foreach (PixelChannel channel in image.Channels)
+    {
+      IChannelStatistics? channelStats = stats.GetChannel(channel);
+      if (channelStats is not null && channelStats.StandardDeviation > stdDevThreshold)
+      {
+        return false;
+      }
+    }
+    return true;
   }
 }

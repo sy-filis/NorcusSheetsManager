@@ -19,6 +19,7 @@ using NorcusSheetsManager.Infrastructure;
 using NorcusSheetsManager.Infrastructure.Configuration;
 using NorcusSheetsManager.Web.Api;
 using NorcusSheetsManager.Web.Api.Extensions;
+using Scalar.AspNetCore;
 
 namespace NorcusSheetsManager;
 
@@ -27,6 +28,13 @@ internal class Program
   public const string ServiceName = "NorcusSheetsManager";
   public const string ServiceDisplayName = "Norcus Sheets Manager";
   public static readonly string VERSION = _GetVersion();
+
+  private static readonly HashSet<string> _KnownHttpMethods = new(StringComparer.OrdinalIgnoreCase)
+  {
+    HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete,
+    HttpMethods.Patch, HttpMethods.Head, HttpMethods.Options,
+    "TRACE", "CONNECT",
+  };
 
   private static async Task<int> Main(string[] args)
   {
@@ -75,6 +83,16 @@ internal class Program
 
     if (config.ApiServer.RunServer)
     {
+      app.Use(static async (HttpContext ctx, RequestDelegate next) =>
+      {
+        if (!_KnownHttpMethods.Contains(ctx.Request.Method))
+        {
+          ctx.Response.StatusCode = StatusCodes.Status501NotImplemented;
+          return;
+        }
+        await next(ctx);
+      });
+
       app.UseExceptionHandler();
       app.UseStatusCodePages();
       app.UseCors();
@@ -90,18 +108,11 @@ internal class Program
 
       app.MapEndpoints(apiGroup);
 
-      app.UseSwagger();
-      app.UseSwaggerUI(o =>
+      app.MapOpenApi();
+      app.MapScalarApiReference(o =>
       {
-        IApiVersionDescriptionProvider provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-        foreach (ApiVersionDescription description in provider.ApiVersionDescriptions.Reverse())
-        {
-          o.SwaggerEndpoint(
-              $"/swagger/{description.GroupName}/swagger.json",
-              $"Norcus Sheets Manager API {description.GroupName.ToUpperInvariant()}");
-        }
-        o.DocumentTitle = "Norcus Sheets Manager API";
-        o.RoutePrefix = "swagger";
+        o.Title = "Norcus Sheets Manager API";
+        o.Theme = ScalarTheme.Default;
       });
 
       app.MapHealthChecks("/health", new HealthCheckOptions

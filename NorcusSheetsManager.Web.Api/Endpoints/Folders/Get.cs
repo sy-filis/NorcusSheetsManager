@@ -22,12 +22,15 @@ internal sealed class Get : IEndpoint
     {
       if (!auth.GetAuthContext(ctx).IsAuthenticated)
       {
-        return Results.StatusCode(StatusCodes.Status403Forbidden);
+        return Results.Unauthorized();
       }
 
       Result<IReadOnlyList<string>> result = await handler.Handle(new GetFoldersQuery(), cancellationToken);
       return result.Match(Results.Ok, CustomResults.Problem);
     })
-    .WithTags(Tags.Folders);
+    .WithTags(Tags.Folders)
+    .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
+    .WithResponseExample(StatusCodes.Status200OK, new[] { "teri", "jakub", "shared" })
+    .ProducesProblem(StatusCodes.Status401Unauthorized);
   }
 }

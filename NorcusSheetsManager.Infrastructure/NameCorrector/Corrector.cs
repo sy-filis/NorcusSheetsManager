@@ -92,7 +92,14 @@ internal class Corrector : INameCorrector
     foreach (string file in files)
     {
       string nameNoExt = Path.GetFileNameWithoutExtension(file);
-      if (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt))
+
+      // The naming convention uses only - and _ as separators; literal dots in
+      // the base name create ambiguity with extensions (Path.GetFileNameWithoutExtension
+      // only strips the trailing extension), so a file like "shake.taylor.png"
+      // would otherwise match a stale "shake.taylor" row in the database and
+      // silently look valid. Enforce the convention here regardless of the DB.
+      bool basenameIsWellFormed = !nameNoExt.Contains('.');
+      if (basenameIsWellFormed && (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt)))
       {
         continue;
       }

@@ -43,6 +43,15 @@ internal sealed class CheckFileExists : IEndpoint
       Result<IRenamingSuggestion> result = await handler.Handle(query, cancellationToken);
       return result.Match(Results.Ok, CustomResults.Problem);
     })
-    .WithTags(Tags.Corrector);
+    .WithTags(Tags.Corrector)
+    .Produces<IRenamingSuggestion>(StatusCodes.Status200OK)
+    .WithResponseExample(StatusCodes.Status200OK, new
+    {
+      FileName = "hot_n_cold-kate_perry",
+      FileExists = true,
+    })
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status404NotFound);
   }
 }

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -21,14 +20,18 @@ internal sealed class FullScan : IEndpoint
         HttpContext ctx,
         CancellationToken cancellationToken) =>
     {
-      if (!auth.ValidateFromContext(ctx, new Claim("NsmAdmin", "true")))
+      IResult? authFailure = auth.RequireAdmin(ctx);
+      if (authFailure is not null)
       {
-        return Results.StatusCode(StatusCodes.Status403Forbidden);
+        return authFailure;
       }
 
       Result result = await handler.Handle(new FullScanCommand(), cancellationToken);
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
-    .WithTags(Tags.Manager);
+    .WithTags(Tags.Manager)
+    .Produces(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden);
   }
 }
