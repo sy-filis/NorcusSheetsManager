@@ -95,7 +95,7 @@ internal class Program
     Console.WriteLine("File name corrector:");
     Console.WriteLine("--------------------");
     manager.NameCorrector.ReloadData();
-    var transactions = manager.NameCorrector.GetRenamingTransactionsForAllSubfolders(1);
+    IEnumerable<IRenamingTransaction>? transactions = manager.NameCorrector.GetRenamingTransactionsForAllSubfolders(1);
 
     if (transactions is null || !transactions.Any())
     {
@@ -105,7 +105,7 @@ internal class Program
     }
 
     Console.WriteLine("Invalid file names and suggestions:");
-    foreach (var trans in transactions)
+    foreach (IRenamingTransaction trans in transactions)
     {
       IRenamingSuggestion? suggestion = trans.Suggestions.FirstOrDefault();
       Console.WriteLine($"{trans.InvalidFullPath} -> " +
@@ -121,9 +121,9 @@ internal class Program
     if (Console.ReadKey(true).Key.ToString().Equals("Y"))
     {
       manager.StopWatching();
-      foreach (var trans in transactions)
+      foreach (IRenamingTransaction trans in transactions)
       {
-        var response = trans.Commit(0);
+        ITransactionResponse response = trans.Commit(0);
         if (!response.Success)
         {
           Console.WriteLine(response.Message);

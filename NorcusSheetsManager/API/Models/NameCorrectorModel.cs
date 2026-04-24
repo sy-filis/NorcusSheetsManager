@@ -63,7 +63,7 @@ internal class NameCorrectorModel(IDbLoader dbLoader)
     }
 
     INorcusUser? user = dbLoader.GetUsers().FirstOrDefault(u => u.Guid == guid);
-    
+
     return user is not null;
   }
 }

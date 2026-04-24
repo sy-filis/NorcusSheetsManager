@@ -156,7 +156,7 @@ internal class Manager
       _FixAllGoogleFiles();
     }
 
-    var pdfFiles = _GetPdfFiles(false);
+    IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
 
     Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.SheetsPath}.", _logger);
 
@@ -190,8 +190,8 @@ internal class Manager
       _FixAllGoogleFiles();
     }
 
-    var pdfFiles = _GetPdfFiles(false);
-    var archivePdfFiles = _GetPdfFiles(true);
+    IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
+    IEnumerable<FileInfo> archivePdfFiles = _GetPdfFiles(true);
 
     if (!Config.MovePdfToSubfolder)
     {
@@ -277,8 +277,8 @@ internal class Manager
       _FixAllGoogleFiles();
     }
 
-    var pdfFiles = _GetPdfFiles(false);
-    var archivePdfFiles = _GetPdfFiles(true);
+    IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
+    IEnumerable<FileInfo> archivePdfFiles = _GetPdfFiles(true);
 
     if (!Config.MovePdfToSubfolder)
     {
@@ -289,7 +289,7 @@ internal class Manager
       Logger.Debug($"Found {pdfFiles.Count() + archivePdfFiles.Count()} PDF files " +
           $"in {Config.SheetsPath} and \"{Config.PdfSubfolder}\" subfolders.", _logger);
       // Pokud je povoleno přesouvání PDFka do podsložky, přesunu PDFka z podsložek do složky o úroveň výš.
-      foreach (var archivePdf in archivePdfFiles)
+      foreach (FileInfo archivePdf in archivePdfFiles)
       {
         if (archivePdf.DirectoryName is null)
         {
@@ -375,7 +375,7 @@ internal class Manager
     {
       return;
     }
-    var images = _GetImagesForPdf(new FileInfo(e.OldFullPath));
+    FileInfo[] images = _GetImagesForPdf(new FileInfo(e.OldFullPath));
     _RenameImages(images, e.OldName, e.Name);
   }
 
@@ -460,11 +460,11 @@ internal class Manager
   {
     try
     {
-      var images = _GetImagesForPdf(pdfFile);
+      FileInfo[] images = _GetImagesForPdf(pdfFile);
       bool imgsAreOlder = images.Any(i => i.LastWriteTimeUtc < pdfFile.LastWriteTimeUtc);
       if (imgsAreOlder || forceDeleteAndConvert)
       {
-        foreach (var image in images)
+        foreach (FileInfo image in images)
         {
           File.Delete(image.FullName);
           Logger.Debug($"Image {image.FullName} was deleted" + (imgsAreOlder ? " (found newer PDF)." : "."), _logger);
@@ -472,7 +472,7 @@ internal class Manager
       }
       if (images.Length == 0 || imgsAreOlder || forceDeleteAndConvert)
       {
-        var createdImages = _Converter.Convert(pdfFile);
+        IEnumerable<FileInfo> createdImages = _Converter.Convert(pdfFile);
         _SyncFileTimes(pdfFile, createdImages);
         if (Config.MovePdfToSubfolder)
         {
@@ -498,7 +498,7 @@ internal class Manager
     {
       string oldNameNoExt = Path.GetFileNameWithoutExtension(oldName);
       string newNameNoExt = Path.GetFileNameWithoutExtension(newName);
-      foreach (var image in images)
+      foreach (FileInfo image in images)
       {
         string? dir = Path.GetDirectoryName(image.FullName);
         if (dir is null)
@@ -530,7 +530,7 @@ internal class Manager
   }
   private void _SyncFileTimes(FileInfo source, IEnumerable<FileInfo> targets)
   {
-    foreach (var target in targets)
+    foreach (FileInfo target in targets)
     {
       target.CreationTime = source.CreationTime;
       target.CreationTimeUtc = source.CreationTimeUtc;

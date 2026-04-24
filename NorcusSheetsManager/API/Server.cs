@@ -22,7 +22,7 @@ public static class Server
       throw new Exception("Instance is already created.");
     }
 
-    var builder = WebApplication.CreateBuilder();
+    WebApplicationBuilder builder = WebApplication.CreateBuilder();
 
     builder.Logging.ClearProviders();
     builder.Logging.AddNLog("NLog.config");
@@ -30,7 +30,7 @@ public static class Server
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
     builder.Services.AddSingleton<ITokenAuthenticator>(new JWTAuthenticator(secureKey));
-    foreach (var (type, instance) in singletons)
+    foreach ((Type? type, object? instance) in singletons)
     {
       builder.Services.AddSingleton(type, instance);
     }

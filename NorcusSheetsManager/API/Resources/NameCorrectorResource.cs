@@ -17,7 +17,7 @@ internal static class NameCorrectorResource
 {
   public static void MapEndpoints(IEndpointRouteBuilder app)
   {
-    var group = app.MapGroup("/api/v1/corrector");
+    RouteGroupBuilder group = app.MapGroup("/api/v1/corrector");
 
     group.MapGet("/invalid-names/{suggestionsCount:int?}",
         (int? suggestionsCount, ITokenAuthenticator auth, Corrector corrector, HttpContext ctx)
@@ -161,7 +161,7 @@ internal static class NameCorrectorResource
       return Results.Text(msg.ToString(), statusCode: StatusCodes.Status400BadRequest);
     }
 
-    var response = request.SuggestionIndex.HasValue
+    ITransactionResponse response = request.SuggestionIndex.HasValue
         ? corrector.CommitTransactionByGuid(request.TransactionGuid, (int)request.SuggestionIndex)
         : corrector.CommitTransactionByGuid(request.TransactionGuid, request.FileName!);
 
@@ -194,7 +194,7 @@ internal static class NameCorrectorResource
           statusCode: StatusCodes.Status400BadRequest);
     }
 
-    var response = corrector.DeleteTransaction(guid);
+    ITransactionResponse response = corrector.DeleteTransaction(guid);
     if (!response.Success)
     {
       return Results.Text(response.Message ?? "", statusCode: StatusCodes.Status500InternalServerError);
@@ -217,7 +217,7 @@ internal static class NameCorrectorResource
       errorMsg.AppendLine($"Parameter \"{transaction}\" is not valid Guid.");
     }
 
-    var trans = corrector.GetTransactionByGuid(guid);
+    IRenamingTransaction? trans = corrector.GetTransactionByGuid(guid);
     if (trans is null)
     {
       errorMsg.AppendLine($"Transaction \"{guid}\" does not exist.");

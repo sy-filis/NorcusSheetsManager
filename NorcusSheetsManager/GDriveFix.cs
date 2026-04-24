@@ -94,7 +94,7 @@ public static class GDriveFix
           Logger.Debug($"File {sortedVersions[i].FullFileName} deleted.", _logger);
         }
       }
-      var lastFile = sortedVersions.Last();
+      GDriveFile lastFile = sortedVersions.Last();
       try
       {
         File.Move(lastFile.FullFileName, lastFile.FullFileNameNoVer);

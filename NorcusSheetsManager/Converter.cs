@@ -127,7 +127,7 @@ public class Converter
       else if (images.Count > 1)
       {
         int page = MultiPageInitNumber;
-        foreach (var image in images)
+        foreach (IMagickImage<byte> image in images)
         {
           image.Format = OutFileFormat;
           _ModifyImage(image);

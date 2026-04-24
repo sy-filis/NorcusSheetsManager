@@ -9,7 +9,7 @@ internal static class ManagerResource
 {
   public static void MapEndpoints(IEndpointRouteBuilder app)
   {
-    var group = app.MapGroup("/api/v1/manager");
+    RouteGroupBuilder group = app.MapGroup("/api/v1/manager");
 
     group.MapPost("/scan", (ITokenAuthenticator auth, Manager manager, HttpContext ctx) =>
     {

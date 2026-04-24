@@ -73,7 +73,7 @@ internal class MySQLLoader(string server, ushort port, string database, string u
   {
     List<string> songs = new();
     using var command = new MySqlCommand("SELECT filename FROM songs", connection);
-    using var reader = await command.ExecuteReaderAsync();
+    using MySqlDataReader reader = await command.ExecuteReaderAsync();
 
     while (await reader.ReadAsync())
     {
@@ -86,7 +86,7 @@ internal class MySQLLoader(string server, ushort port, string database, string u
   {
     List<NorcusUser> users = new();
     using var command = new MySqlCommand("SELECT uuid, name, email, folder FROM musicians", connection);
-    using var reader = await command.ExecuteReaderAsync();
+    using MySqlDataReader reader = await command.ExecuteReaderAsync();
 
     while (await reader.ReadAsync())
     {

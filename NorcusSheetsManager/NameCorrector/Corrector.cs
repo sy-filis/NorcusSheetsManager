@@ -62,7 +62,7 @@ internal class Corrector
     }
 
     List<IRenamingTransaction> result = new();
-    var directories = Directory.GetDirectories(BaseSheetsFolder)
+    IEnumerable<string> directories = Directory.GetDirectories(BaseSheetsFolder)
         .Select(d => d.Replace(BaseSheetsFolder, "").Replace("\\", ""));
     foreach (string? directory in directories)
     {
@@ -85,7 +85,7 @@ internal class Corrector
       return null;
     }
 
-    var files = Directory.GetFiles(path, "*.*", SearchOption.TopDirectoryOnly)
+    IEnumerable<string> files = Directory.GetFiles(path, "*.*", SearchOption.TopDirectoryOnly)
         .Where(f => _ExtensionFilter.Contains(Path.GetExtension(f)));
     foreach (string? file in files)
     {
@@ -109,7 +109,7 @@ internal class Corrector
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, int suggestionIndex)
   {
     Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    var response = transaction?.Commit(suggestionIndex)
+    ITransactionResponse response = transaction?.Commit(suggestionIndex)
         ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
 
     if (transaction is not null)
@@ -122,7 +122,7 @@ internal class Corrector
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, string newFileName)
   {
     Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    var response = transaction?.Commit(newFileName)
+    ITransactionResponse response = transaction?.Commit(newFileName)
         ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
 
     if (transaction is not null)
@@ -141,7 +141,7 @@ internal class Corrector
   public ITransactionResponse DeleteTransaction(Guid transactionGuid)
   {
     Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    var response = transaction?.Delete()
+    ITransactionResponse response = transaction?.Delete()
         ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
 
     if (transaction is not null)

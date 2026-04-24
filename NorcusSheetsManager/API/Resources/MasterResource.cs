@@ -18,7 +18,7 @@ internal static class MasterResource
         return Results.StatusCode(StatusCodes.Status403Forbidden);
       }
 
-      var folders = Directory.GetDirectories(corrector.BaseSheetsFolder)
+      IEnumerable<string> folders = Directory.GetDirectories(corrector.BaseSheetsFolder)
                 .Select(d => Path.GetFileName(d))
                 .Where(d => !string.IsNullOrEmpty(d) && !d.StartsWith("."));
 

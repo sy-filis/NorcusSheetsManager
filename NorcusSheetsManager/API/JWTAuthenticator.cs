@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 
@@ -59,13 +60,13 @@ internal class JWTAuthenticator : ITokenAuthenticator
       return false;
     }
 
-    var token = _ProcessToken(jwtToken);
+    (bool Valid, ClaimsPrincipal? Claims) token = _ProcessToken(jwtToken);
     if (!token.Valid)
     {
       return false;
     }
 
-    foreach (var requiredClaim in requiredClaims)
+    foreach (Claim requiredClaim in requiredClaims)
     {
       Claim? claim = token.Claims?.FindFirst((c) => c.Type == requiredClaim.Type && c.Value == requiredClaim.Value);
       if (claim is null)
@@ -78,7 +79,7 @@ internal class JWTAuthenticator : ITokenAuthenticator
 
   private static string? _ExtractBearerToken(HttpContext context)
   {
-    if (!context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+    if (!context.Request.Headers.TryGetValue("Authorization", out StringValues authHeader))
     {
       return null;
     }
