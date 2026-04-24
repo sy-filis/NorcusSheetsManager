@@ -9,7 +9,7 @@ internal class Transaction(string baseFolder, string invalidFullName, IEnumerabl
   public Guid Guid { get; } = Guid.NewGuid();
   public string InvalidFullPath { get; } = invalidFullName;
   public string? InvalidRelativePath { get; } = invalidFullName.StartsWith(baseFolder)
-      ? Path.GetDirectoryName(invalidFullName.Remove(0, baseFolder.Length + 1))
+      ? Path.GetDirectoryName(Path.GetRelativePath(baseFolder, invalidFullName))
       : Path.GetDirectoryName(invalidFullName);
   public string InvalidFileName { get; } = Path.GetFileName(invalidFullName);
   public IEnumerable<IRenamingSuggestion> Suggestions =>

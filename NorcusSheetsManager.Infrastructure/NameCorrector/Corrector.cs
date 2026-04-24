@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using F23.StringSimilarity;
 using F23.StringSimilarity.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -12,11 +13,17 @@ internal class Corrector : INameCorrector
   private List<string> _Songs { get; set; }
   private List<Transaction> _RenamingTransactions { get; set; }
   private IEnumerable<string> _ExtensionFilter { get; set; }
+  private readonly Regex _multiPageSuffix;
   public string BaseSheetsFolder { get; }
   public IDbLoader DbLoader { get; }
   private readonly IStringDistance _stringSimilarityModel;
 
-  public Corrector(IDbLoader dbLoader, string baseSheetsFolder, IEnumerable<string> extensionsFilter, ILogger<Corrector> logger)
+  public Corrector(
+      IDbLoader dbLoader,
+      string baseSheetsFolder,
+      IEnumerable<string> extensionsFilter,
+      string multiPageDelimiter,
+      ILogger<Corrector> logger)
   {
     _logger = logger;
     DbLoader = dbLoader;
@@ -35,6 +42,8 @@ internal class Corrector : INameCorrector
     _stringSimilarityModel = new QGram(2);
     _RenamingTransactions = new List<Transaction>();
     _ExtensionFilter = extensionsFilter;
+    // Matches "{anything}{delimiter}{digits}" as produced by Converter for multi-page PDFs.
+    _multiPageSuffix = new Regex($@"^(.+){Regex.Escape(multiPageDelimiter)}\d+$", RegexOptions.Compiled);
   }
 
   /// <returns>true if more than 0 songs were loaded from database</returns>
@@ -60,7 +69,7 @@ internal class Corrector : INameCorrector
 
     List<IRenamingTransaction> result = new();
     IEnumerable<string> directories = Directory.GetDirectories(BaseSheetsFolder)
-        .Select(d => d.Replace(BaseSheetsFolder, "").Replace("\\", ""));
+        .Select(d => Path.GetFileName(d));
     foreach (string directory in directories)
     {
       result.AddRange(GetRenamingTransactions(directory, suggestionsCount) ?? Enumerable.Empty<IRenamingTransaction>());
@@ -82,7 +91,8 @@ internal class Corrector : INameCorrector
         .Where(f => _ExtensionFilter.Contains(Path.GetExtension(f)));
     foreach (string file in files)
     {
-      if (_Songs.Contains(Path.GetFileNameWithoutExtension(file)))
+      string nameNoExt = Path.GetFileNameWithoutExtension(file);
+      if (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt))
       {
         continue;
       }
@@ -150,6 +160,18 @@ internal class Corrector : INameCorrector
 
   public IRenamingSuggestion CreateSuggestion(IRenamingTransaction transaction, string fileName)
       => new Suggestion(transaction.InvalidFullPath, fileName, 0);
+
+  /// <summary>
+  /// True when <paramref name="fileNameWithoutExt"/> matches the <c>{song}{delimiter}{digits}</c>
+  /// pattern that <see cref="Converter"/> writes for multi-page PDFs AND the stripped prefix
+  /// is the name of a song we know about. Such files are legitimately named; they must not be
+  /// flagged as invalid even though their full name isn't in the song list.
+  /// </summary>
+  private bool _IsMultiPageImage(string fileNameWithoutExt)
+  {
+    Match match = _multiPageSuffix.Match(fileNameWithoutExt);
+    return match.Success && _Songs.Contains(match.Groups[1].Value);
+  }
 
   private List<Suggestion> _GetSuggestionsForFile(string fullFileName, int suggestionsCount)
   {

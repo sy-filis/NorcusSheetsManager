@@ -31,6 +31,7 @@ public static class DependencyInjection
         sp.GetRequiredService<IDbLoader>(),
         config.Converter.SheetsPath!,
         config.Converter.WatchedExtensions,
+        config.Converter.MultiPageDelimiter,
         sp.GetRequiredService<ILogger<Corrector>>()));
 
     services.AddSingleton<Converter>();
