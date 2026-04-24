@@ -1,23 +1,22 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
-namespace NorcusSheetsManager.NameCorrector
+namespace NorcusSheetsManager.NameCorrector;
+
+internal interface IRenamingTransactionBase
 {
-    internal interface IRenamingTransactionBase
-    {
-        [JsonPropertyName("TransactionGuid")]
-        Guid Guid { get; }
+  [JsonPropertyName("TransactionGuid")]
+  Guid Guid { get; }
 
-        [JsonIgnore]
-        string InvalidFullPath { get; }
+  [JsonIgnore]
+  string InvalidFullPath { get; }
 
-        /// <summary>
-        /// Název chybného souboru.
-        /// </summary>
-        string InvalidFileName { get; }
-        IEnumerable<IRenamingSuggestion> Suggestions { get; }
+  /// <summary>
+  /// Název chybného souboru.
+  /// </summary>
+  string InvalidFileName { get; }
+  IEnumerable<IRenamingSuggestion> Suggestions { get; }
 
-        ITransactionResponse Commit(int suggestionIndex);
-        ITransactionResponse Commit(IRenamingSuggestion suggestion);
-        ITransactionResponse Commit(string newFileName);
-    }
+  ITransactionResponse Commit(int suggestionIndex);
+  ITransactionResponse Commit(IRenamingSuggestion suggestion);
+  ITransactionResponse Commit(string newFileName);
 }

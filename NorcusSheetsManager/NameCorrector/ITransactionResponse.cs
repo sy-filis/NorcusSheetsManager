@@ -1,8 +1,7 @@
-﻿namespace NorcusSheetsManager.NameCorrector
+namespace NorcusSheetsManager.NameCorrector;
+
+internal interface ITransactionResponse
 {
-    internal interface ITransactionResponse
-    {
-        string? Message { get; }
-        bool Success { get; }
-    }
+  string? Message { get; }
+  bool Success { get; }
 }
