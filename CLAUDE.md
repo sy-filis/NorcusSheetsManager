@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Run
 
-.NET 10.0 console app using `Microsoft.NET.Sdk.Web` (console UI + embedded Kestrel). Solution: `NorcusSheetsManager.sln`, single project in `NorcusSheetsManager/`. Platforms: `AnyCPU` and `x64`.
+.NET 10.0 console app on the plain `Microsoft.NET.Sdk` with a `FrameworkReference` to `Microsoft.AspNetCore.App` (console UI + embedded Kestrel). Solution: `NorcusSheetsManager.sln`, single project in `NorcusSheetsManager/`. Platforms: `AnyCPU` and `x64`. NuGet versions are centralized in `Directory.Packages.props` (Central Package Management) — csproj entries only `Include` the package name.
 
 ```bash
 dotnet restore
@@ -17,20 +17,32 @@ There is no test project — `dotnet test` has nothing to run.
 
 ### Publishing a single-exe release
 
-The project is configured for framework-dependent single-file publish (requires .NET 10 runtime on the target machine):
+Framework-dependent single-file publish (requires .NET 10 runtime on the target):
 
 ```bash
+# Windows
 dotnet publish NorcusSheetsManager -c Release -r win-x64 --no-self-contained -o publish
+
+# Linux
+dotnet publish NorcusSheetsManager -c Release -r linux-x64 --no-self-contained -o publish
 ```
 
-Output layout (≈53 MB total):
-- `NorcusSheetsManager.exe` (~28 MB — bundles all managed deps and `Magick.Native-Q8-x64.dll`)
-- `gsdll64.dll` and `gswin64c.exe` — Ghostscript, left as separate files because `MagickNET.SetGhostscriptDirectory` and the `Process.Start` call in `Converter.TryGetPdfPageCount` load them from `AppContext.BaseDirectory`
-- `NLog.config`, `api_doc.txt`, `version` — config/data files
+Output layouts:
+- **Windows (~53 MB)** — `NorcusSheetsManager.exe` (~28 MB, bundles managed deps + `Magick.Native-Q8-x64.dll`), `gsdll64.dll` (~24 MB), `gswin64c.exe`, plus `NLog.config`, `api_doc.txt`, `version`. The two Ghostscript files are loaded from disk by `MagickNET.SetGhostscriptDirectory` and `Process.Start` in `Converter`, so they stay alongside the exe (marked `ExcludeFromSingleFile`).
+- **Linux (~43 MB)** — `NorcusSheetsManager` (no extension, bundles managed deps + `Magick.Native-Q8-x64.dll.so`), plus the 3 config/data files. No Ghostscript files: the `Content Include` entries for `gsdll64.dll`/`gswin64c.exe` are conditional on `IsWindowsBuild`, and `Converter` calls `gs` from `PATH` instead. Install system Ghostscript (`apt install ghostscript`).
 
-For a fully self-contained build (no runtime required, ~85 MB total, compressed exe), edit the csproj: `<SelfContained>true</SelfContained>` and re-add `<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>` (compression is only valid when self-contained).
+For a fully self-contained build, set `<SelfContained>true</SelfContained>` and re-add `<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>` in the csproj (compression requires self-contained).
 
-The project ships native Ghostscript binaries (`gsdll64.dll`, `gswin64c.exe`) that are copied to the output directory via `CopyToOutputDirectory=PreserveNewest`. Recent commits added Linux support, so these Windows binaries are not universally required at runtime, but the `TryGetPdfPageCount` path in `Converter.cs` hard-codes `gswin64c.exe` — keep that in mind if changing platform behavior.
+### Docker
+
+A `Dockerfile` at repo root produces a Linux container image. Multi-stage: SDK image for `dotnet publish -r linux-x64`, then `mcr.microsoft.com/dotnet/aspnet:10.0` + `ghostscript` for the runtime layer.
+
+```bash
+docker build -t norcus-sheets-manager .
+docker run -p 4434:4434 -v /path/to/sheets:/sheets -v /path/to/config:/app/config norcus-sheets-manager
+```
+
+The default port 4434 comes from `Config.APISettings.Port`. The app writes `NorcusSheetsManagerCfg.xml`, `debug.log`, and `error.log` next to the binary (`/app` in the container), so mount a volume to persist them across restarts. The `FileSystemWatcher` requires the sheets folder path from `Config.SheetsPath` to be accessible inside the container — mount the host folder and point `SheetsPath` to the mount.
 
 ### Running the compiled app
 

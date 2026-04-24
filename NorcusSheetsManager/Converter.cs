@@ -51,7 +51,10 @@ public class Converter
   public bool CropImage { get; set; } = true;
   static Converter()
   {
-    MagickNET.SetGhostscriptDirectory(AppContext.BaseDirectory);
+    if (OperatingSystem.IsWindows())
+    {
+      MagickNET.SetGhostscriptDirectory(AppContext.BaseDirectory);
+    }
   }
   public Converter()
   {
@@ -147,9 +150,12 @@ public class Converter
   {
     // Metoda PdfInfo.Create(pdfFile).PageCount z nějakého důvodu hází chybu. Použiji tedy Ghostscript napřímo:
     string fullPath = pdfFile.FullName.Replace("\\", "/");
+    string gsExecutable = OperatingSystem.IsWindows()
+        ? Path.Combine(AppContext.BaseDirectory, "gswin64c.exe")
+        : "gs";
     var startInfo = new ProcessStartInfo()
     {
-      FileName = Path.Combine(AppContext.BaseDirectory, "gswin64c.exe"),
+      FileName = gsExecutable,
       Arguments = $"-q -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT --permit-file-read=\"{fullPath}\" -sPDFPassword=\"\" -c \"({fullPath}) (r) file runpdfbegin pdfpagecount = quit\"",
       UseShellExecute = false,
       RedirectStandardOutput = true,

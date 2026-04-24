@@ -20,25 +20,31 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="F23.StringSimilarity" Version="7.0.1" />
-    <PackageReference Include="Magick.NET-Q8-x64" Version="14.12.0" />
-    <PackageReference Include="MySqlConnector" Version="2.5.0" />
-    <PackageReference Include="NLog" Version="6.1.2" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="6.1.2" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
+    <PackageReference Include="F23.StringSimilarity" />
+    <PackageReference Include="Magick.NET-Q8-x64" />
+    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="NLog" />
+    <PackageReference Include="NLog.Extensions.Logging" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Windows if a win-* RID is specified for publish, or we're building on Windows without an explicit RID. -->
+    <IsWindowsBuild Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">true</IsWindowsBuild>
+    <IsWindowsBuild Condition="'$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Windows'))">true</IsWindowsBuild>
+  </PropertyGroup>
 
   <ItemGroup>
     <None Update="api_doc.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
-    <Content Include="gsdll64.dll">
+    <Content Include="gsdll64.dll" Condition="'$(IsWindowsBuild)' == 'true'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Include="gswin64c.exe">
+    <Content Include="gswin64c.exe" Condition="'$(IsWindowsBuild)' == 'true'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>

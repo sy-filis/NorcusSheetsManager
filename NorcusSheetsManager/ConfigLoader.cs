@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using ImageMagick;
-using Microsoft.Win32;
 
 namespace NorcusSheetsManager;
 

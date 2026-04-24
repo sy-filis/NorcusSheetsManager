@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+publish-test/
+publish/
+.git/
+.gitignore
+.gitattributes
+Dockerfile
+.dockerignore
+CLAUDE.md
