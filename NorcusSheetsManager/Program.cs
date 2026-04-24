@@ -24,7 +24,7 @@ internal class Program
       var manager = new Manager();
       manager.FullScan();
       manager.StartWatching(true);
-      if (manager.Config.AutoScan)
+      if (manager.Config.Converter.AutoScan)
       {
         manager.AutoFullScan(60000, 5);
       }

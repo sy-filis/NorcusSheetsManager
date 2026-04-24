@@ -25,50 +25,47 @@ internal class Manager
   private List<FileSystemWatcher> _FileSystemWatchers { get; set; }
   private bool _IsWatcherEnabled { get; set; }
   private bool _ScanningInProgress { get; set; }
-  public IConfig Config { get; private set; }
+  public AppConfig Config { get; private set; }
   public Corrector NameCorrector { get; private set; }
   public Manager()
   {
     Config = ConfigLoader.Load();
-    if (string.IsNullOrEmpty(Config.SheetsPath))
+    if (string.IsNullOrEmpty(Config.Converter.SheetsPath))
     {
-      Exception e = new ArgumentNullException(nameof(Config.SheetsPath));
+      Exception e = new ArgumentNullException(nameof(Config.Converter.SheetsPath));
       Logger.Error(e, _logger);
       throw e;
     }
 
     _Converter = new Converter()
     {
-      OutFileFormat = Config.OutFileFormat,
-      MultiPageDelimiter = Config.MultiPageDelimiter,
-      MultiPageCounterLength = Config.MultiPageCounterLength,
-      MultiPageInitNumber = Config.MultiPageInitNumber,
-      DPI = Config.DPI,
-      TransparentBackground = Config.TransparentBackground,
-      CropImage = Config.CropImage
+      OutFileFormat = Config.Converter.OutFileFormat,
+      MultiPageDelimiter = Config.Converter.MultiPageDelimiter,
+      MultiPageCounterLength = Config.Converter.MultiPageCounterLength,
+      MultiPageInitNumber = Config.Converter.MultiPageInitNumber,
+      DPI = Config.Converter.DPI,
+      TransparentBackground = Config.Converter.TransparentBackground,
+      CropImage = Config.Converter.CropImage
     };
 
     _FileSystemWatchers = _CreateFileSystemWatchers();
 
-    IDbLoader sqlLoader = File.Exists(Config.DbConnection.Database) && Path.GetExtension(Config.DbConnection.Database) == ".txt"
-      ? new DbFileLoader(Config.DbConnection.Database) { UserId = Config.DbConnection.UserId }
-      : new MySQLLoader(Config.DbConnection.Server,
-          Config.DbConnection.Port,
-          Config.DbConnection.Database,
-          Config.DbConnection.UserId,
-          Config.DbConnection.Password);
-    NameCorrector = new Corrector(sqlLoader, Config.SheetsPath, Config.WatchedExtensions);
+    DatabaseConnection db = Config.ApiServer.DbConnection;
+    IDbLoader sqlLoader = File.Exists(db.Database) && Path.GetExtension(db.Database) == ".txt"
+      ? new DbFileLoader(db.Database) { UserId = db.UserId }
+      : new MySQLLoader(db.Server, db.Port, db.Database, db.UserId, db.Password);
+    NameCorrector = new Corrector(sqlLoader, Config.Converter.SheetsPath, Config.Converter.WatchedExtensions);
 
-    if (Config.APISettings.RunServer)
+    if (Config.ApiServer.RunServer)
     {
       List<(Type type, object instance)> singletons = new()
               {
                   (typeof(Corrector), NameCorrector),
                   (typeof(Manager), this)
               };
-      Server.Initialize(Config.APISettings.Port, Config.APISettings.Key, singletons);
+      Server.Initialize(Config.ApiServer.Port, Config.ApiServer.Key, singletons);
       Server.Start();
-      Logger.Debug($"API server started (port {Config.APISettings.Port}).", _logger);
+      Logger.Debug($"API server started (port {Config.ApiServer.Port}).", _logger);
     }
   }
   /// <summary>
@@ -77,7 +74,7 @@ internal class Manager
   private List<FileSystemWatcher> _CreateFileSystemWatchers()
   {
     List<FileSystemWatcher> _fileSystemWatchers = new();
-    string[] directories = Directory.GetDirectories(Config.SheetsPath!);
+    string[] directories = Directory.GetDirectories(Config.Converter.SheetsPath!);
     foreach (string dir in directories)
     {
       var watcher = new FileSystemWatcher
@@ -90,7 +87,7 @@ internal class Manager
           NotifyFilters.LastWrite,
         EnableRaisingEvents = true
       };
-      foreach (string ext in Config.WatchedExtensions)
+      foreach (string ext in Config.Converter.WatchedExtensions)
       {
         watcher.Filters.Add("*" + ext);
       }
@@ -150,15 +147,15 @@ internal class Manager
   {
     StopWatching();
     _ScanningInProgress = true;
-    Logger.Debug($"Scanning all PDF files in {Config.SheetsPath}.", _logger);
-    if (Config.FixGDriveNaming)
+    Logger.Debug($"Scanning all PDF files in {Config.Converter.SheetsPath}.", _logger);
+    if (Config.Converter.FixGDriveNaming)
     {
       _FixAllGoogleFiles();
     }
 
     IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
 
-    Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.SheetsPath}.", _logger);
+    Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.Converter.SheetsPath}.", _logger);
 
     int convertCounter = 0;
     foreach (FileInfo pdfFile in pdfFiles)
@@ -171,7 +168,7 @@ internal class Manager
     }
     if (convertCounter > 0)
     {
-      Logger.Debug($"{convertCounter} files converted to {Config.OutFileFormat}.", _logger);
+      Logger.Debug($"{convertCounter} files converted to {Config.Converter.OutFileFormat}.", _logger);
     }
 
     _ScanningInProgress = false;
@@ -184,8 +181,8 @@ internal class Manager
   {
     StopWatching();
     _ScanningInProgress = true;
-    Logger.Debug($"Deep scanning all PDF files in {Config.SheetsPath}.", _logger);
-    if (Config.FixGDriveNaming)
+    Logger.Debug($"Deep scanning all PDF files in {Config.Converter.SheetsPath}.", _logger);
+    if (Config.Converter.FixGDriveNaming)
     {
       _FixAllGoogleFiles();
     }
@@ -193,14 +190,14 @@ internal class Manager
     IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
     IEnumerable<FileInfo> archivePdfFiles = _GetPdfFiles(true);
 
-    if (!Config.MovePdfToSubfolder)
+    if (!Config.Converter.MovePdfToSubfolder)
     {
-      Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.SheetsPath}.", _logger);
+      Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.Converter.SheetsPath}.", _logger);
     }
     else
     {
-      Logger.Debug($"Found {pdfFiles.Count() + archivePdfFiles.Count()} PDF files in {Config.SheetsPath} " +
-          $"and \"{Config.PdfSubfolder}\" subfolders.", _logger);
+      Logger.Debug($"Found {pdfFiles.Count() + archivePdfFiles.Count()} PDF files in {Config.Converter.SheetsPath} " +
+          $"and \"{Config.Converter.PdfSubfolder}\" subfolders.", _logger);
     }
 
     int convertCounter = 0;
@@ -227,7 +224,7 @@ internal class Manager
       }
     }
 
-    if (Config.MovePdfToSubfolder)
+    if (Config.Converter.MovePdfToSubfolder)
     {
       foreach (FileInfo pdfFile in archivePdfFiles)
       {
@@ -260,7 +257,7 @@ internal class Manager
       }
     }
 
-    Logger.Debug($"{convertCounter} file(s) converted to {Config.OutFileFormat}.", _logger);
+    Logger.Debug($"{convertCounter} file(s) converted to {Config.Converter.OutFileFormat}.", _logger);
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -271,8 +268,8 @@ internal class Manager
   {
     StopWatching();
     _ScanningInProgress = true;
-    Logger.Debug($"Force converting all PDF files in {Config.SheetsPath}.", _logger);
-    if (Config.FixGDriveNaming)
+    Logger.Debug($"Force converting all PDF files in {Config.Converter.SheetsPath}.", _logger);
+    if (Config.Converter.FixGDriveNaming)
     {
       _FixAllGoogleFiles();
     }
@@ -280,14 +277,14 @@ internal class Manager
     IEnumerable<FileInfo> pdfFiles = _GetPdfFiles(false);
     IEnumerable<FileInfo> archivePdfFiles = _GetPdfFiles(true);
 
-    if (!Config.MovePdfToSubfolder)
+    if (!Config.Converter.MovePdfToSubfolder)
     {
-      Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.SheetsPath}.", _logger);
+      Logger.Debug($"Found {pdfFiles.Count()} PDF files in {Config.Converter.SheetsPath}.", _logger);
     }
     else
     {
       Logger.Debug($"Found {pdfFiles.Count() + archivePdfFiles.Count()} PDF files " +
-          $"in {Config.SheetsPath} and \"{Config.PdfSubfolder}\" subfolders.", _logger);
+          $"in {Config.Converter.SheetsPath} and \"{Config.Converter.PdfSubfolder}\" subfolders.", _logger);
       // If moving PDFs to a subfolder is enabled, pull them from the subfolder back up to the parent folder.
       foreach (FileInfo archivePdf in archivePdfFiles)
       {
@@ -306,7 +303,7 @@ internal class Manager
           File.Move(archivePdf.FullName, pdfInParentDir.FullName);
         }
       }
-      // Aktualizuji seznam PDF v Config.SheetsPath:
+      // Refresh the PDF list in Config.Converter.SheetsPath:
       pdfFiles = _GetPdfFiles(false);
     }
 
@@ -320,7 +317,7 @@ internal class Manager
       }
     }
 
-    Logger.Debug($"{convertCounter} file(s) converted to {Config.OutFileFormat}.", _logger);
+    Logger.Debug($"{convertCounter} file(s) converted to {Config.Converter.OutFileFormat}.", _logger);
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -332,7 +329,7 @@ internal class Manager
       StopWatching();
     }
 
-    GDriveFix.FixAllFiles(Config.SheetsPath!, SearchOption.AllDirectories, false, Config.WatchedExtensions);
+    GDriveFix.FixAllFiles(Config.Converter.SheetsPath!, SearchOption.AllDirectories, false, Config.Converter.WatchedExtensions);
     if (isWatcherActive)
     {
       StartWatching();
@@ -388,7 +385,7 @@ internal class Manager
 
     string fullPath = e.FullPath;
     Logger.Debug($"Detected: {fullPath} was created.", _logger);
-    if (Config.FixGDriveNaming && Regex.IsMatch(fullPath, GDriveFix.GDriveFile.VerPattern))
+    if (Config.Converter.FixGDriveNaming && Regex.IsMatch(fullPath, GDriveFix.GDriveFile.VerPattern))
     {
       fullPath = _FixGoogleFile(fullPath);
     }
@@ -425,7 +422,7 @@ internal class Manager
 
     string fullPath = e.FullPath;
     Logger.Debug($"Detected: {fullPath} was deleted.", _logger);
-    //if (Config.FixGDriveNaming && Regex.IsMatch(fullPath, GDriveFix.GDriveFile.VerPattern))
+    //if (Config.Converter.FixGDriveNaming && Regex.IsMatch(fullPath, GDriveFix.GDriveFile.VerPattern))
     //{
     //    StopWatching();
     //    fullPath = _FixGoogleFile(fullPath);
@@ -441,8 +438,8 @@ internal class Manager
   {
     string dir = pdfFile.Directory!.FullName;
     string name = Path.GetFileNameWithoutExtension(pdfFile.Name);
-    string ext = "." + Config.OutFileFormat.ToString().ToLower();
-    string pattern = $".*{Regex.Escape(name)}({Config.MultiPageDelimiter}\\d*)?(\\s\\(\\d+\\))?\\{ext}";
+    string ext = "." + Config.Converter.OutFileFormat.ToString().ToLower();
+    string pattern = $".*{Regex.Escape(name)}({Config.Converter.MultiPageDelimiter}\\d*)?(\\s\\(\\d+\\))?\\{ext}";
 
     FileInfo[] foundFiles = Directory.GetFiles(dir, $"{name}*{ext}", SearchOption.TopDirectoryOnly)
         .Where(path => Regex.IsMatch(path, pattern))
@@ -474,7 +471,7 @@ internal class Manager
       {
         IEnumerable<FileInfo> createdImages = _Converter.Convert(pdfFile);
         _SyncFileTimes(pdfFile, createdImages);
-        if (Config.MovePdfToSubfolder)
+        if (Config.Converter.MovePdfToSubfolder)
         {
           _MovePdfToSubfolder(pdfFile);
         }
@@ -553,7 +550,7 @@ internal class Manager
     {
       return;
     }
-    string newPath = Path.Combine(pdfDir, Config.PdfSubfolder);
+    string newPath = Path.Combine(pdfDir, Config.Converter.PdfSubfolder);
     if (!Directory.Exists(newPath))
     {
       Directory.CreateDirectory(newPath);
@@ -563,22 +560,22 @@ internal class Manager
     try
     {
       File.Move(sourceFile, targetFile, true);
-      Logger.Debug($"File {sourceFile} was moved to \"{Config.PdfSubfolder}\" subfolder.", _logger);
+      Logger.Debug($"File {sourceFile} was moved to \"{Config.Converter.PdfSubfolder}\" subfolder.", _logger);
     }
     catch (Exception e)
     {
-      Logger.Warn($"File {sourceFile} could not be moved to \"{Config.PdfSubfolder}\" subfolder.", _logger);
+      Logger.Warn($"File {sourceFile} could not be moved to \"{Config.Converter.PdfSubfolder}\" subfolder.", _logger);
       Logger.Warn(e, _logger);
     }
   }
   private IEnumerable<FileInfo> _GetPdfFiles(bool filesInPdfSubfolder)
   {
-    string[] directories = Directory.GetDirectories(Config.SheetsPath!);
+    string[] directories = Directory.GetDirectories(Config.Converter.SheetsPath!);
     var pdfFiles = new List<FileInfo>();
 
     foreach (string dir in directories)
     {
-      string dirx = filesInPdfSubfolder ? Path.Combine(dir, Config.PdfSubfolder) : dir;
+      string dirx = filesInPdfSubfolder ? Path.Combine(dir, Config.Converter.PdfSubfolder) : dir;
       if (!Directory.Exists(dirx))
       {
         continue;

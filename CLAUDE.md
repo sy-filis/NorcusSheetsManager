@@ -115,7 +115,8 @@ Manager scan endpoints (`/scan`, `/deep-scan`, `/convert-all`) return `200 OK` i
 
 ## Conventions
 
-- Language: mixed English/Czech. Comments and log messages in `Manager`, `Corrector`, `GDriveFix`, `api_doc.txt` are Czech; identifiers and public API are English. Don't translate existing Czech text unless asked — match the surrounding language when adding new comments.
+- Configuration lives in `appsettings.json` next to the binary (and optional `appsettings.{Environment}.json` overlays plus environment variables) — loaded via `Microsoft.Extensions.Configuration` in `ConfigLoader.Load()`. Two top-level sections: `Converter` (PDF/image/watching/GDrive) and `ApiServer` (`RunServer`, `Port`, `Key`, nested `DbConnection`). The C# side is POCO classes in `IConfig.cs`: `AppConfig` → `ConverterSettings` + `ApiServerSettings` + `DatabaseConnection`. Env-var overrides use the standard double-underscore path, e.g. `ApiServer__DbConnection__Password=...`.
+- Language: comments and identifiers are English. Older log messages and a few inline comments were translated from Czech — `api_doc.txt` still has Czech paragraphs.
 - Namespace quirk: `Program.cs` sits in `namespace AutoPdfToImage` (legacy name); everything else is under `NorcusSheetsManager`. Leave it alone unless doing a deliberate rename.
 - Version is hand-maintained in the `.csproj` (`<AssemblyVersion>`, `<Version>`) and surfaced via `Assembly.GetEntryAssembly().GetName().Version`. The `version` file in the project root appears unrelated (contains a date build stamp) and is copied to output.
 - `IConfig` is a serialized contract — adding a property requires giving it a default value so older XML configs still deserialize. `ConfigLoader.Load` re-saves after deserialization to persist migrations.
