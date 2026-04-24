@@ -11,15 +11,24 @@ internal class MySQLLoader : IDbLoader
 {
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
   public string Server { get; set; }
+  public ushort Port { get; set; }
   public string Database { get; set; }
   public string UserId { get; set; }
   public string Password { get; set; }
-  public string ConnectionString => $"Server={Server}; Database={Database}; User Id={UserId}; Password={Password};";
+  public string ConnectionString => new MySqlConnectionStringBuilder
+  {
+    Server = Server,
+    Port = Port,
+    Database = Database,
+    UserID = UserId,
+    Password = Password,
+  }.ConnectionString;
   private List<string> _Songs { get; set; } = new();
   private List<NorcusUser> _Users { get; set; } = new();
-  public MySQLLoader(string server, string database, string userId, string password)
+  public MySQLLoader(string server, ushort port, string database, string userId, string password)
   {
     Server = server;
+    Port = port;
     Database = database;
     UserId = userId;
     Password = password;

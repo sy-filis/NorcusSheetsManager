@@ -95,6 +95,7 @@ public static class ConfigLoader
     public class DatabaseConnection : IDbConnection
     {
       public string Server { get; set; } = "server";
+      public ushort Port { get; set; } = 3306;
       public string Database { get; set; } = "database";
       public string UserId { get; set; } = "user";
       public string Password { get; set; } = "password";

@@ -28,6 +28,7 @@ public interface IConfig
 public interface IDbConnection
 {
   string Server { get; set; }
+  ushort Port { get; set; }
   string Database { get; set; }
   string UserId { get; set; }
   string Password { get; set; }

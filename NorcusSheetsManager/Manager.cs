@@ -53,6 +53,7 @@ internal class Manager
     IDbLoader sqlLoader = File.Exists(Config.DbConnection.Database) && Path.GetExtension(Config.DbConnection.Database) == ".txt"
       ? new DbFileLoader(Config.DbConnection.Database) { UserId = Config.DbConnection.UserId }
       : new MySQLLoader(Config.DbConnection.Server,
+          Config.DbConnection.Port,
           Config.DbConnection.Database,
           Config.DbConnection.UserId,
           Config.DbConnection.Password);
