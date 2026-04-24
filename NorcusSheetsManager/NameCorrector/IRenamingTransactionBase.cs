@@ -11,7 +11,7 @@ internal interface IRenamingTransactionBase
   string InvalidFullPath { get; }
 
   /// <summary>
-  /// Název chybného souboru.
+  /// Invalid file name.
   /// </summary>
   string InvalidFileName { get; }
   IEnumerable<IRenamingSuggestion> Suggestions { get; }

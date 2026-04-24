@@ -5,17 +5,17 @@ namespace NorcusSheetsManager.NameCorrector;
 internal interface IRenamingSuggestion
 {
   /// <summary>
-  /// Plná cesta k novému názvu souboru
+  /// Full path to the new file name.
   /// </summary>
   [JsonIgnore]
   string FullPath { get; }
   /// <summary>
-  /// Plná cesta k chybnému názvu souboru
+  /// Full path to the invalid file name.
   /// </summary>
   [JsonIgnore]
   string InvalidFullPath { get; }
   /// <summary>
-  /// Navrhovaný název nového souboru bez přípony
+  /// Suggested new file name without extension.
   /// </summary>
   string FileName { get; }
   bool FileExists { get; }

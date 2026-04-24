@@ -27,11 +27,11 @@ public class Converter
   /// </summary>
   public string MultiPageDelimiter { get; set; } = "-";
   /// <summary>
-  /// Počet číslic (default 3 => 003)
+  /// Number of digits (default 3 => 003)
   /// </summary>
   public int MultiPageCounterLength { get; set; } = 3;
   /// <summary>
-  /// Určuje počáteční index (default = 1)
+  /// Starting index (default = 1)
   /// </summary>
   public int MultiPageInitNumber { get; set; } = 1;
   /// <summary>
@@ -46,7 +46,7 @@ public class Converter
   /// </summary>
   public bool TransparentBackground { get; set; } = false;
   /// <summary>
-  /// Oříznout obrázek dle obsahu. Default = true;
+  /// Trim the image to its content. Default = true;
   /// </summary>
   public bool CropImage { get; set; } = true;
   static Converter()
@@ -148,7 +148,7 @@ public class Converter
   }
   public bool TryGetPdfPageCount(FileInfo pdfFile, out int pageCount)
   {
-    // Metoda PdfInfo.Create(pdfFile).PageCount z nějakého důvodu hází chybu. Použiji tedy Ghostscript napřímo:
+    // PdfInfo.Create(pdfFile).PageCount throws for some reason, so we invoke Ghostscript directly:
     string fullPath = pdfFile.FullName.Replace("\\", "/");
     string gsExecutable = OperatingSystem.IsWindows()
         ? Path.Combine(AppContext.BaseDirectory, "gswin64c.exe")

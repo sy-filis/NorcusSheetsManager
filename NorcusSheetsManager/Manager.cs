@@ -72,7 +72,7 @@ internal class Manager
     }
   }
   /// <summary>
-  /// Vytvoří FileSystemWatchers pro každou složku s notami. Kontroluje pouze první úroveň každé složky.
+  /// Creates a FileSystemWatcher for each sheets folder. Only the top level of each folder is watched.
   /// </summary>
   private List<FileSystemWatcher> _CreateFileSystemWatchers()
   {
@@ -178,7 +178,7 @@ internal class Manager
     StartWatching();
   }
   /// <summary>
-  /// Prohledá všechny PDF soubory a zjistí, zda ke každému existuje správný počet obrázků dle počtu stránek PDF. Nevyhovující znovu konvertuje.
+  /// Scans every PDF and checks that the image-file count matches the PDF page count. Reconverts the mismatches.
   /// </summary>
   public void DeepScan()
   {
@@ -265,7 +265,7 @@ internal class Manager
     StartWatching();
   }
   /// <summary>
-  /// Převede všechny PDF soubory do obrázku.
+  /// Converts all PDF files into images.
   /// </summary>
   public void ForceConvertAll()
   {
@@ -288,7 +288,7 @@ internal class Manager
     {
       Logger.Debug($"Found {pdfFiles.Count() + archivePdfFiles.Count()} PDF files " +
           $"in {Config.SheetsPath} and \"{Config.PdfSubfolder}\" subfolders.", _logger);
-      // Pokud je povoleno přesouvání PDFka do podsložky, přesunu PDFka z podsložek do složky o úroveň výš.
+      // If moving PDFs to a subfolder is enabled, pull them from the subfolder back up to the parent folder.
       foreach (FileInfo archivePdf in archivePdfFiles)
       {
         if (archivePdf.DirectoryName is null)
@@ -364,7 +364,7 @@ internal class Manager
 
     Logger.Debug($"Detected: {e.OldFullPath} was renamed to {e.FullPath}.", _logger);
 
-    // Pokud se jedná o fixnutý název google souboru, potřebuji znovu převést pdf:
+    // If this was a GDrive-rename fixup, the PDF needs to be reconverted:
     if (Path.GetExtension(e.FullPath) == ".pdf" && Regex.IsMatch(e.OldFullPath, GDriveFix.GDriveFile.VerPattern))
     {
       _DeleteOlderAndConvert(new FileInfo(e.FullPath), true);
@@ -451,11 +451,11 @@ internal class Manager
     return foundFiles;
   }
   /// <summary>
-  /// Pokud k PDF neexistují obrázky, nebo jsou starší, tak je smaže a PDF zkonvertuje.
+  /// If no images exist for the PDF, or they are older than the PDF, deletes them and reconverts the PDF.
   /// </summary>
   /// <param name="pdfFile"></param>
-  /// <param name="forceDeleteAndConvert">Smaže všechny soubory náležící k PDF a PDF vždy zkonvertuje</param>
-  /// <returns>Vrací true, pokud proběhla konverze</returns>
+  /// <param name="forceDeleteAndConvert">Deletes every file belonging to the PDF and always reconverts.</param>
+  /// <returns>True if a conversion ran.</returns>
   private bool _DeleteOlderAndConvert(FileInfo pdfFile, bool forceDeleteAndConvert = false)
   {
     try

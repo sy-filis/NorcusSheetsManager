@@ -93,7 +93,7 @@ internal class Transaction(string baseFolder, string invalidFullName, IEnumerabl
   }
 
   /// <summary>
-  /// Vymaže chybný soubor a nastaví transakci jako commited
+  /// Deletes the invalid file and marks the transaction as committed.
   /// </summary>
   /// <returns></returns>
   public ITransactionResponse Delete()

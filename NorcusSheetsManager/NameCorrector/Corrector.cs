@@ -75,7 +75,7 @@ internal class Corrector
   /// </summary>
   /// <param name="sheetsSubfolder"></param>
   /// <param name="suggestionsCount"></param>
-  /// <returns>Vrací null, pokud <paramref name="sheetsSubfolder"/> neexistuje</returns>
+  /// <returns>Null if <paramref name="sheetsSubfolder"/> does not exist.</returns>
   public IEnumerable<IRenamingTransaction>? GetRenamingTransactions(string sheetsSubfolder, int suggestionsCount)
   {
     List<IRenamingTransaction> transactions = new();
@@ -134,7 +134,7 @@ internal class Corrector
   }
 
   /// <summary>
-  /// Vymaže chybný soubor transakce a transakci commituje.
+  /// Deletes the transaction's invalid file and commits the transaction.
   /// </summary>
   /// <param name="transactionGuid"></param>
   /// <returns></returns>

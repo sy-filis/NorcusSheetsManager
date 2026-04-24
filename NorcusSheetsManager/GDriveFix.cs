@@ -13,11 +13,11 @@ public static class GDriveFix
 {
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
   /// <summary>
-  /// Opraví názvy souborů ve složce Google Disku - vymaže označení verze souboru "soubor (1).pdf".
+  /// Fixes file names in a Google Drive folder — removes the version marker from "file (1).pdf".
   /// </summary>
   /// <param name="directory"></param>
   /// <param name="includeSubdirectories"></param>
-  /// <param name="allowMultipleVersions">Pokud true, ponechá pouze soubor s nejvyšším označením verze. Když false, pokud je více souborů se stejným názvem, nebude je přejmenovávat.</param>
+  /// <param name="allowMultipleVersions">If true, keeps only the file with the highest version marker. If false and multiple files share the same base name, they are left untouched.</param>
   public static void FixAllFiles(string directory, SearchOption searchOption, bool allowMultipleVersions, params string[] extensionFilter)
   {
     var files = new List<string>();
@@ -45,10 +45,10 @@ public static class GDriveFix
     }
   }
   /// <summary>
-  /// Opraví název souboru ve složce Google Disku - vymaže označení verze souboru "soubor (1).pdf".
+  /// Fixes a file name in a Google Drive folder — removes the version marker from "file (1).pdf".
   /// </summary>
   /// <param name="fullFileName"></param>
-  /// <param name="allowMultipleVersions">Pokud true, ponechá pouze soubor s nejvyšším označením verze. Když false, pokud je více souborů se stejným názvem, nebude je přejmenovávat.</param>
+  /// <param name="allowMultipleVersions">If true, keeps only the file with the highest version marker. If false and multiple files share the same base name, they are left untouched.</param>
   /// <returns>New file name</returns>
   public static string FixFile(string fullFileName, bool allowMultipleVersions)
   {

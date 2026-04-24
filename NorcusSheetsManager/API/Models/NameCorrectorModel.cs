@@ -10,9 +10,9 @@ namespace NorcusSheetsManager.API.Models;
 internal class NameCorrectorModel(IDbLoader dbLoader)
 {
   /// <summary>
-  /// Pokud je uživatel admin, vrací vždy true. Pro neadminy platí: Uživatel musí existovat;
-  /// pokud žádá o cizí složku, vrací se false; pokud žádá o všechny složky, vrací se true
-  /// a do <paramref name="sheetsFolder"/> se nastaví složka uživatele.
+  /// If the user is an admin, always returns true. For non-admins: the user must exist;
+  /// if they request another user's folder, returns false; if they request all folders, returns true
+  /// and <paramref name="sheetsFolder"/> is reassigned to that user's folder.
   /// </summary>
   /// <param name="nsmAdmin"></param>
   /// <param name="guid"></param>
@@ -31,15 +31,15 @@ internal class NameCorrectorModel(IDbLoader dbLoader)
       return false;
     }
 
-    // User existuje a není admin:
-    if (string.IsNullOrEmpty(sheetsFolder)) // Chce získat info ke všem složkám.
-                                            // Vrátím true, ale přes referenci mu vrátím jen jeho složku.
+    // User exists and is not an admin:
+    if (string.IsNullOrEmpty(sheetsFolder)) // Requesting info for all folders.
+                                            // Return true, but hand back only their folder via the ref parameter.
     {
       sheetsFolder = user.Folder;
       return true;
     }
 
-    if (sheetsFolder != user.Folder) // Chce získat info k cizí složce
+    if (sheetsFolder != user.Folder) // Requesting info for another user's folder
     {
       return false;
     }
@@ -47,10 +47,10 @@ internal class NameCorrectorModel(IDbLoader dbLoader)
     return true;
   }
   /// <summary>
-  /// Pokud je admin, tak může všechno. Jinak testuji, jestli uživatel alespoň existuje.
-  /// Složku, kde chce dělat úpravu kotrolovat nemusím, protože aby mohl zapisovat,
-  /// musí znát Guid transakce, který by při čtení nezískal.
-  /// Odkud může číst, tam může i zapisovat. Pokud by mohl číst i cizí složky, musela by se kontrolovat i složka.
+  /// Admins can do anything. For others we only check that the user exists.
+  /// We don't need to check which folder they are writing to, because to write they must
+  /// know the transaction Guid, which they could only obtain from a read they were allowed.
+  /// Wherever they can read, they can also write. If they could read foreign folders too, we'd need a folder check here as well.
   /// </summary>
   /// <param name="nsmAdmin"></param>
   /// <param name="guid"></param>

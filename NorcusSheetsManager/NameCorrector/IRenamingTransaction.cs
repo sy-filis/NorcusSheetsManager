@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace NorcusSheetsManager.NameCorrector;
 
 /// <summary>
-/// Oproti <see cref="IRenamingTransactionBase"/> má navíc <see cref="InvalidRelativePath"/>.
+/// Adds <see cref="InvalidRelativePath"/> on top of <see cref="IRenamingTransactionBase"/>.
 /// </summary>
 internal interface IRenamingTransaction : IRenamingTransactionBase
 {
@@ -14,7 +14,7 @@ internal interface IRenamingTransaction : IRenamingTransactionBase
   string? InvalidRelativePath { get; }
 
   /// <summary>
-  /// Název chybného souboru.
+  /// Invalid file name.
   /// </summary>
   new string InvalidFileName { get; }
   new IEnumerable<IRenamingSuggestion> Suggestions { get; }

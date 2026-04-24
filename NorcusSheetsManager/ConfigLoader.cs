@@ -47,7 +47,7 @@ public static class ConfigLoader
 
     if (deserialized != null)
     {
-      _Save(deserialized); // tímto zajistím uložení aktuální verze Configu v případě, že načtený Config byl starší verze.
+      _Save(deserialized); // persists the current Config schema in case the loaded file was from an older version.
     }
 
     return deserialized ?? _GetDefaultConfig();
