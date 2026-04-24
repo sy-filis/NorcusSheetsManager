@@ -8,10 +8,10 @@ namespace NorcusSheetsManager.NameCorrector;
 
 internal class DbFileLoader(string fileName) : IDbLoader
 {
-  public string Server { get; set; }
-  public string Database { get; set; }
-  public string UserId { get; set; }
-  public string Password { get; set; }
+  public string Server { get; init; }
+  public string Database { get; init; }
+  public string UserId { get; init; }
+  public string Password { get; init; }
 
   public string ConnectionString => $"Server={Server}; Database={Database}; User Id={UserId}; Password={Password};";
   private string[] _songs = File.ReadAllLines(fileName);

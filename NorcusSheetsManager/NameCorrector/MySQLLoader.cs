@@ -10,11 +10,11 @@ namespace NorcusSheetsManager.NameCorrector;
 internal class MySQLLoader(string server, ushort port, string database, string userId, string password) : IDbLoader
 {
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
-  public string Server { get; set; } = server;
-  public ushort Port { get; set; } = port;
-  public string Database { get; set; } = database;
-  public string UserId { get; set; } = userId;
-  public string Password { get; set; } = password;
+  public string Server { get; init; } = server;
+  public ushort Port { get; init; } = port;
+  public string Database { get; init; } = database;
+  public string UserId { get; init; } = userId;
+  public string Password { get; init; } = password;
   public string ConnectionString => new MySqlConnectionStringBuilder
   {
     Server = Server,

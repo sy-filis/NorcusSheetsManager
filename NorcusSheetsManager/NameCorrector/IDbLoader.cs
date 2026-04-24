@@ -8,10 +8,10 @@ namespace NorcusSheetsManager.NameCorrector;
 
 internal interface IDbLoader
 {
-  string Server { get; set; }
-  string Database { get; set; }
-  string UserId { get; set; }
-  string Password { get; set; }
+  string Server { get; init; }
+  string Database { get; init; }
+  string UserId { get; init; }
+  string Password { get; init; }
   string ConnectionString { get; }
   IEnumerable<string> GetSongNames();
   IEnumerable<INorcusUser> GetUsers();
