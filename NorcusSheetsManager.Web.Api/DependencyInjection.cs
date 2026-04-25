@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NorcusSheetsManager.Application.Configuration;
 using NorcusSheetsManager.Web.Api.Authentication;
@@ -14,16 +15,18 @@ public static class DependencyInjection
   public static IServiceCollection AddWebApi(this IServiceCollection services, ApiServerSettings settings)
   {
     services.AddSingleton<ITokenAuthenticator>(sp => new JWTAuthenticator(
-        settings.JwtSigningKey,
-        sp.GetRequiredService<ILogger<JWTAuthenticator>>()));
+      settings.JwtSigningKey,
+      sp.GetRequiredService<ILogger<JWTAuthenticator>>(),
+      sp.GetRequiredService<IHostEnvironment>())
+    );
 
     services.AddCors(options =>
     {
       options.AddDefaultPolicy(policy => policy
-          .AllowAnyOrigin()
-          .AllowAnyMethod()
-          .AllowAnyHeader()
-          .SetPreflightMaxAge(TimeSpan.FromSeconds(86400)));
+        .AllowAnyOrigin()
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .SetPreflightMaxAge(TimeSpan.FromSeconds(86400)));
     });
 
     services.AddExceptionHandler<GlobalExceptionHandler>();

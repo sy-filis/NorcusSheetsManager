@@ -10,12 +10,13 @@ internal class Manager : IScanService, IWatcherControl
   private readonly ILogger<Manager> _logger;
   private readonly Converter _Converter;
   private readonly IFileNameNormalizer _Normalizer;
+  private readonly INameCorrector _Corrector;
   private readonly List<FileSystemWatcher> _FileSystemWatchers;
   private bool _IsWatcherEnabled;
   private bool _ScanningInProgress;
   public AppConfig Config { get; }
 
-  public Manager(AppConfig config, Converter converter, IFileNameNormalizer normalizer, ILogger<Manager> logger)
+  public Manager(AppConfig config, Converter converter, IFileNameNormalizer normalizer, INameCorrector corrector, ILogger<Manager> logger)
   {
     Config = config;
     _logger = logger;
@@ -35,6 +36,7 @@ internal class Manager : IScanService, IWatcherControl
 
     _Converter = converter;
     _Normalizer = normalizer;
+    _Corrector = corrector;
     _FileSystemWatchers = _CreateFileSystemWatchers();
   }
 
@@ -156,6 +158,7 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     _NormalizeAllFolders();
+    _Corrector.RebuildInvalidIndex();
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -247,6 +250,7 @@ internal class Manager : IScanService, IWatcherControl
     _logger.LogInformation("{Count} file(s) converted to {Format}.", convertCounter, Config.Converter.OutFileFormat);
 
     _NormalizeAllFolders();
+    _Corrector.RebuildInvalidIndex();
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -313,6 +317,7 @@ internal class Manager : IScanService, IWatcherControl
     _logger.LogInformation("{Count} file(s) converted to {Format}.", convertCounter, Config.Converter.OutFileFormat);
 
     _NormalizeAllFolders();
+    _Corrector.RebuildInvalidIndex();
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -362,6 +367,14 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     string newFileName = GDriveFix.FixFile(fullFileName, false);
+
+    // The rename above happened with the OS watcher off; tell the corrector index
+    // explicitly so it doesn't keep the GDrive-versioned name flagged as invalid.
+    if (!string.Equals(newFileName, fullFileName, StringComparison.OrdinalIgnoreCase))
+    {
+      _Corrector.OnFileRenamed(fullFileName, newFileName);
+    }
+
     if (isWatcherActive)
     {
       StartWatching();
@@ -406,6 +419,8 @@ internal class Manager : IScanService, IWatcherControl
         _NormalizeImageFile(e.OldFullPath);
       }
     }
+
+    _Corrector.OnFileRenamed(e.OldFullPath, e.FullPath);
   }
 
   private void Watcher_Created(object sender, FileSystemEventArgs e)
@@ -426,10 +441,12 @@ internal class Manager : IScanService, IWatcherControl
     if (file.Extension == ".pdf")
     {
       _DeleteOlderAndConvert(file);
+      _Corrector.OnFileCreated(fullPath);
       return;
     }
 
     _NormalizeImageFile(fullPath);
+    _Corrector.OnFileCreated(fullPath);
   }
 
   /// <summary>
@@ -507,6 +524,8 @@ internal class Manager : IScanService, IWatcherControl
     {
       _NormalizeImageFile(e.FullPath);
     }
+
+    _Corrector.OnFileDeleted(e.FullPath);
   }
 
   private FileInfo[] _GetImagesForPdf(FileInfo pdfFile)

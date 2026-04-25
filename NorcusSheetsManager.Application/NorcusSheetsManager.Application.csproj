@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Magick.NET.Core" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Scrutor" />
   </ItemGroup>
 

@@ -1,5 +1,4 @@
 using NorcusSheetsManager.Application.Abstractions.Messaging;
-using NorcusSheetsManager.Application.Abstractions.Models;
 using NorcusSheetsManager.Application.Abstractions.Services;
 using NorcusSheetsManager.SharedKernel;
 
@@ -21,16 +20,6 @@ internal sealed class GetInvalidNamesCountQueryHandler(INameCorrector corrector,
       return Task.FromResult(Result.Failure<int>(CorrectorErrors.Forbidden));
     }
 
-    IEnumerable<IRenamingTransaction>? transactions = string.IsNullOrEmpty(folder)
-        ? corrector.GetRenamingTransactionsForAllSubfolders(1)
-        : corrector.GetRenamingTransactions(folder, 1);
-
-    if (transactions is null)
-    {
-      return Task.FromResult(Result.Failure<int>(
-          CorrectorErrors.FolderNotFound(folder ?? corrector.BaseSheetsFolder)));
-    }
-
-    return Task.FromResult(Result.Success(transactions.Count()));
+    return Task.FromResult(Result.Success(corrector.GetInvalidCount(folder)));
   }
 }

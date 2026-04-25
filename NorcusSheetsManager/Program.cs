@@ -27,7 +27,7 @@ internal class Program
 {
   public const string ServiceName = "NorcusSheetsManager";
   public const string ServiceDisplayName = "Norcus Sheets Manager";
-  public static readonly string VERSION = _GetVersion();
+  public static readonly string VERSION = GetVersion();
 
   private static readonly HashSet<string> _KnownHttpMethods = new(StringComparer.OrdinalIgnoreCase)
   {
@@ -45,11 +45,11 @@ internal class Program
         case "--install-service":
           return (int)_InstallService();
         case "--uninstall-service":
-          return (int)_UninstallService();
+          return (int)UninstallService();
         case "--help":
         case "-h":
         case "/?":
-          _PrintUsage();
+          PrintUsage();
           return (int)ExitCode.Success;
       }
     }
@@ -68,7 +68,7 @@ internal class Program
     WebApplication app;
     try
     {
-      app = _BuildApp(args, config);
+      app = BuildApp(args, config);
       // StartAsync resolves the hosted services (and the Manager singleton
       // they capture) — anything throwing here is a startup-phase failure.
       await app.StartAsync();
@@ -91,7 +91,7 @@ internal class Program
     }
   }
 
-  private static WebApplication _BuildApp(string[] args, AppConfig config)
+  private static WebApplication BuildApp(string[] args, AppConfig config)
   {
     WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -209,7 +209,7 @@ internal class Program
       return ExitCode.GenericError;
     }
 
-    ExitCode result = _RunSc("create", ServiceName, "binPath=", exePath, "start=", "auto", "DisplayName=", ServiceDisplayName);
+    ExitCode result = RunSc("create", ServiceName, "binPath=", exePath, "start=", "auto", "DisplayName=", ServiceDisplayName);
     if (result == ExitCode.Success)
     {
       Console.WriteLine($"Service '{ServiceName}' installed. Start with:  sc start {ServiceName}");
@@ -221,7 +221,7 @@ internal class Program
     return result;
   }
 
-  private static ExitCode _UninstallService()
+  private static ExitCode UninstallService()
   {
     if (!OperatingSystem.IsWindows())
     {
@@ -229,7 +229,7 @@ internal class Program
       return ExitCode.UnsupportedPlatform;
     }
 
-    ExitCode result = _RunSc("delete", ServiceName);
+    ExitCode result = RunSc("delete", ServiceName);
     if (result != ExitCode.Success)
     {
       Console.Error.WriteLine("Service uninstallation failed. Run from an elevated (Administrator) prompt.");
@@ -237,7 +237,7 @@ internal class Program
     return result;
   }
 
-  private static ExitCode _RunSc(params string[] arguments)
+  private static ExitCode RunSc(params string[] arguments)
   {
     var startInfo = new ProcessStartInfo
     {
@@ -263,29 +263,29 @@ internal class Program
     return proc.ExitCode == 0 ? ExitCode.Success : ExitCode.ServiceManagementFailed;
   }
 
-  private static void _PrintUsage()
+  private static void PrintUsage()
   {
     Console.WriteLine($$"""
-        Norcus Sheets Manager {{VERSION}}
+      Norcus Sheets Manager {{VERSION}}
 
-        Usage:
-          NorcusSheetsManager                        Run as daemon (file watcher + REST API).
-                                                     Drive via the API; Swagger UI at /swagger.
-          NorcusSheetsManager --install-service      Install as Windows service (requires admin).
-          NorcusSheetsManager --uninstall-service    Uninstall the Windows service (requires admin).
-          NorcusSheetsManager --help                 Show this help.
+      Usage:
+        NorcusSheetsManager                        Run as daemon (file watcher + REST API).
+                                                   Drive via the API; Scalar UI at /scalar.
+        NorcusSheetsManager --install-service      Install as Windows service (requires admin).
+        NorcusSheetsManager --uninstall-service    Uninstall the Windows service (requires admin).
+        NorcusSheetsManager --help                 Show this help.
 
-        Exit codes:
-          0  Success
-          1  Generic / unexpected error
-          2  Configuration error (missing or invalid appsettings)
-          3  Unsupported platform (e.g. service install on non-Windows)
-          4  Service install/uninstall failed (sc.exe error or insufficient privileges)
-          5  Startup failed (DI graph or web host could not initialize)
-        """);
+      Exit codes:
+        0  Success
+        1  Generic / unexpected error
+        2  Configuration error (missing or invalid appsettings)
+        3  Unsupported platform (e.g. service install on non-Windows)
+        4  Service install/uninstall failed (sc.exe error or insufficient privileges)
+        5  Startup failed (DI graph or web host could not initialize)
+      """);
   }
 
-  private static string _GetVersion()
+  private static string GetVersion()
   {
     string version = Assembly.GetEntryAssembly()?.GetName()?.Version?.ToString() ?? "";
     return version.Trim();

@@ -4,10 +4,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY NorcusSheetsManager/NorcusSheetsManager.csproj NorcusSheetsManager/
+COPY . .
 RUN dotnet restore NorcusSheetsManager/NorcusSheetsManager.csproj -r linux-x64
 
-COPY NorcusSheetsManager/ NorcusSheetsManager/
 RUN dotnet publish NorcusSheetsManager/NorcusSheetsManager.csproj \
         -c Release \
         -r linux-x64 \

@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Logging;
@@ -14,22 +15,22 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
   private readonly string _key;
   private readonly ILogger<JWTAuthenticator> _logger;
 
-  public JWTAuthenticator(string secureKey, ILogger<JWTAuthenticator> logger)
+  public JWTAuthenticator(string secureKey, ILogger<JWTAuthenticator> logger, IHostEnvironment hostEnvironment)
   {
     _key = secureKey;
     _logger = logger;
-    IdentityModelEventSource.ShowPII = true;
+    IdentityModelEventSource.ShowPII = hostEnvironment.IsDevelopment();
     if (string.IsNullOrEmpty(secureKey))
     {
       _logger.LogWarning("Secure key was not set. All requests will be accepted.");
     }
   }
 
-  public bool IsTokenValid(string token) => _ProcessToken(token).Valid;
+  public bool IsTokenValid(string token) => ProcessToken(token).Valid;
 
   public string? GetClaimValue(HttpContext context, string claimType)
   {
-    string? jwtToken = _ExtractBearerToken(context);
+    string? jwtToken = ExtractBearerToken(context);
     if (jwtToken is null)
     {
       return null;
@@ -39,15 +40,15 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
 
   public string? GetClaimValue(string token, string claimType)
   {
-    ClaimsPrincipal? claims = _ProcessToken(token).Claims;
-    return claims?.Claims.FirstOrDefault(c => c.Type.ToLower() == claimType.ToLower())?.Value;
+    ClaimsPrincipal? claims = ProcessToken(token).Claims;
+    return claims?.Claims.FirstOrDefault(c => string.Equals(c.Type, claimType, StringComparison.OrdinalIgnoreCase))?.Value;
   }
 
   public bool ValidateFromContext(HttpContext context)
-      => ValidateFromContext(context, Enumerable.Empty<Claim>());
+      => ValidateFromContext(context, []);
 
   public bool ValidateFromContext(HttpContext context, Claim requiredClaim)
-      => ValidateFromContext(context, new[] { requiredClaim });
+      => ValidateFromContext(context, [requiredClaim]);
 
   public bool ValidateFromContext(HttpContext context, IEnumerable<Claim> requiredClaims)
   {
@@ -56,30 +57,19 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
       return true;
     }
 
-    string? jwtToken = _ExtractBearerToken(context);
+    string? jwtToken = ExtractBearerToken(context);
     if (jwtToken is null)
     {
       return false;
     }
 
-    (bool Valid, ClaimsPrincipal? Claims) token = _ProcessToken(jwtToken);
-    if (!token.Valid)
-    {
-      return false;
-    }
-
-    foreach (Claim requiredClaim in requiredClaims)
-    {
-      Claim? claim = token.Claims?.FindFirst(c => c.Type == requiredClaim.Type && c.Value == requiredClaim.Value);
-      if (claim is null)
-      {
-        return false;
-      }
-    }
-    return true;
+    (bool valid, ClaimsPrincipal? claims) = ProcessToken(jwtToken);
+    return valid &&
+           requiredClaims.All(requiredClaim =>
+             claims?.FindFirst(c => c.Type == requiredClaim.Type && c.Value == requiredClaim.Value) is not null);
   }
 
-  private static string? _ExtractBearerToken(HttpContext context)
+  private static string? ExtractBearerToken(HttpContext context)
   {
     if (!context.Request.Headers.TryGetValue("Authorization", out StringValues authHeader))
     {
@@ -89,7 +79,7 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
     return parts.Length >= 2 ? parts[1] : null;
   }
 
-  private (bool Valid, ClaimsPrincipal? Claims) _ProcessToken(string token)
+  private (bool Valid, ClaimsPrincipal? Claims) ProcessToken(string token)
   {
     if (string.IsNullOrEmpty(_key))
     {
@@ -101,7 +91,7 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
       return (false, null);
     }
 
-    TokenValidationParameters tokenValidationParameters = _GetTokenValidationParameters();
+    TokenValidationParameters tokenValidationParameters = GetTokenValidationParameters();
     var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
     try
     {
@@ -115,25 +105,25 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
     }
   }
 
-  private TokenValidationParameters _GetTokenValidationParameters()
+  private TokenValidationParameters GetTokenValidationParameters()
   {
     return new TokenValidationParameters
     {
       ValidateIssuer = false,
       ValidateAudience = false,
       ValidateLifetime = true,
-      IssuerSigningKey = _GetSymmetricSecurityKey(),
-      LifetimeValidator = _LifetimeValidator,
+      IssuerSigningKey = GetSymmetricSecurityKey(),
+      LifetimeValidator = LifetimeValidator,
     };
   }
 
-  private SecurityKey _GetSymmetricSecurityKey()
+  private SymmetricSecurityKey GetSymmetricSecurityKey()
   {
     byte[] symmetricKey = Encoding.UTF8.GetBytes(_key);
-    return new SymmetricSecurityKey(symmetricKey);
+    return new (symmetricKey);
   }
 
-  private bool _LifetimeValidator(DateTime? notBefore, DateTime? expires, SecurityToken securityToken, TokenValidationParameters validationParameters)
+  private bool LifetimeValidator(DateTime? notBefore, DateTime? expires, SecurityToken securityToken, TokenValidationParameters validationParameters)
   {
     if (!validationParameters.ValidateLifetime)
     {

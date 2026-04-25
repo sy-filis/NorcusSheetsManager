@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using F23.StringSimilarity;
 using F23.StringSimilarity.Interfaces;
@@ -7,38 +8,26 @@ using NorcusSheetsManager.Application.Abstractions.Services;
 
 namespace NorcusSheetsManager.Infrastructure.NameCorrector;
 
-internal class Corrector : INameCorrector
+internal class Corrector(
+  IDbLoader dbLoader,
+  string baseSheetsFolder,
+  IEnumerable<string> extensionsFilter,
+  char multiPageDelimiter,
+  ILogger<Corrector> logger)
+  : INameCorrector
 {
-  private readonly ILogger<Corrector> _logger;
-  private HashSet<string> _Songs { get; set; }
-  private Dictionary<Guid, Transaction> _RenamingTransactions { get; }
-  private IEnumerable<string> _ExtensionFilter { get; init; }
-  private readonly Regex _multiPageSuffix;
-  private readonly char _multiPageDelimiter;
-  public string BaseSheetsFolder { get; }
-  public bool HasSongs => _Songs.Count > 0;
-  public IDbLoader DbLoader { get; }
-  private readonly IStringDistance _stringSimilarityModel;
+  private HashSet<string> Songs { get; set; } = [];
+  private Dictionary<Guid, Transaction> RenamingTransactions { get; } = new();
+  private IEnumerable<string> ExtensionFilter { get; init; } = extensionsFilter;
+  private readonly Regex _multiPageSuffix = new($@"^(.+){Regex.Escape(multiPageDelimiter.ToString())}\d+$", RegexOptions.Compiled);
+  private readonly ConcurrentDictionary<string, byte> _invalidPaths = new(StringComparer.OrdinalIgnoreCase);
+  private readonly Lock _indexLock = new();
+  public string BaseSheetsFolder { get; } = baseSheetsFolder;
+  public bool HasSongs => Songs.Count > 0;
+  public IDbLoader DbLoader { get; } = dbLoader;
+  private readonly IStringDistance _stringSimilarityModel = new QGram(2);
 
-  public Corrector(
-      IDbLoader dbLoader,
-      string baseSheetsFolder,
-      IEnumerable<string> extensionsFilter,
-      char multiPageDelimiter,
-      ILogger<Corrector> logger)
-  {
-    _logger = logger;
-    DbLoader = dbLoader;
-    BaseSheetsFolder = baseSheetsFolder;
-    _Songs = [];
-
-    _stringSimilarityModel = new QGram(2);
-    _RenamingTransactions = new();
-    _ExtensionFilter = extensionsFilter;
-    _multiPageDelimiter = multiPageDelimiter;
-    // Matches "{anything}{delimiter}{digits}" as produced by Converter for multi-page PDFs.
-    _multiPageSuffix = new Regex($@"^(.+){Regex.Escape(multiPageDelimiter.ToString())}\d+$", RegexOptions.Compiled);
-  }
+  // Matches "{anything}{delimiter}{digits}" as produced by Converter for multi-page PDFs.
 
   /// <returns>true if more than 0 songs were loaded from database</returns>
   public bool ReloadData()
@@ -46,43 +35,153 @@ internal class Corrector : INameCorrector
     DbLoader.ReloadDataAsync().Wait();
     var fresh = DbLoader.GetSongNames().ToHashSet();
 
-    bool changed = !fresh.SetEquals(_Songs);
-    _Songs = fresh;
+    bool changed = !fresh.SetEquals(Songs);
+    Songs = fresh;
 
-    // When the song list changes, files that were invalid may now be valid
-    // (their cached transaction is obsolete and must be dropped). The inverse —
-    // files that became invalid because their matching song was renamed or
-    // removed — is handled by GetRenamingTransactions on the next fetch: it
-    // creates fresh transactions for any in-folder file not in _Songs and not
-    // already cached, so newly-invalid files get new GUIDs naturally.
-    if (changed && _RenamingTransactions.Count > 0)
+    // The validity of every cached path depends on _Songs, so a song-list change
+    // invalidates the index. RebuildInvalidIndex re-scans disk and drops cached
+    // transactions whose files are no longer in the invalid set (became valid,
+    // were deleted, or were renamed away).
+    if (changed)
     {
-      var toDrop = _RenamingTransactions
-          .Where(kvp =>
-          {
-            string nameNoExt = Path.GetFileNameWithoutExtension(kvp.Value.InvalidFullPath);
-            bool wellFormed = !nameNoExt.Contains('.');
-            return wellFormed && (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt));
-          })
-          .Select(kvp => kvp.Key)
-          .ToList();
-      foreach (Guid guid in toDrop)
-      {
-        _RenamingTransactions.Remove(guid);
-      }
-      if (toDrop.Count > 0)
-      {
-        _logger.LogInformation("Dropped {Dropped} cached transaction(s) whose files became valid after DB refresh.", toDrop.Count);
-      }
+      RebuildInvalidIndex();
     }
 
-    if (_Songs.Count == 0)
+    if (Songs.Count == 0)
     {
-      _logger.LogWarning("No songs were loaded from database.");
+      logger.LogWarning("No songs were loaded from database.");
       return false;
     }
-    _logger.LogInformation("Database reloaded; {Count} songs loaded.", _Songs.Count);
+    logger.LogInformation("Database reloaded; {Count} songs loaded.", Songs.Count);
     return true;
+  }
+
+  public void RebuildInvalidIndex()
+  {
+    if (Songs.Count == 0 || !Directory.Exists(BaseSheetsFolder))
+    {
+      // Without a song list, every file would look "invalid". Skip until ReloadData
+      // succeeds — at which point ReloadData itself triggers the rebuild.
+      return;
+    }
+
+    var fresh = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    foreach (string dir in Directory.GetDirectories(BaseSheetsFolder))
+    {
+      string[] files;
+      try
+      {
+        files = Directory.GetFiles(dir, "*.*", SearchOption.TopDirectoryOnly);
+      }
+      catch (DirectoryNotFoundException)
+      {
+        continue;
+      }
+      foreach (string file in files)
+      {
+        if (_IsInvalid(file))
+        {
+          fresh.Add(file);
+        }
+      }
+    }
+
+    lock (_indexLock)
+    {
+      _invalidPaths.Clear();
+      foreach (string path in fresh)
+      {
+        _invalidPaths.TryAdd(path, 0);
+      }
+
+      // Drop cached transactions whose file is no longer flagged invalid
+      // (deleted, renamed away, or now matches a song under the new song list).
+      var stale = RenamingTransactions
+          .Where(kvp => !_invalidPaths.ContainsKey(kvp.Value.InvalidFullPath))
+          .Select(kvp => kvp.Key)
+          .ToList();
+      foreach (Guid g in stale)
+      {
+        RenamingTransactions.Remove(g);
+      }
+      if (stale.Count > 0)
+      {
+        logger.LogInformation("Dropped {Dropped} cached transaction(s) no longer in the invalid set.", stale.Count);
+      }
+    }
+
+    logger.LogInformation("Invalid-files index rebuilt; {Count} file(s) currently invalid.", _invalidPaths.Count);
+  }
+
+  public void OnFileCreated(string fullPath)
+  {
+    if (_IsInvalid(fullPath))
+    {
+      _invalidPaths.TryAdd(fullPath, 0);
+    }
+  }
+
+  public void OnFileRenamed(string oldFullPath, string newFullPath)
+  {
+    _invalidPaths.TryRemove(oldFullPath, out _);
+    _DropCachedTransactionFor(oldFullPath);
+    if (_IsInvalid(newFullPath))
+    {
+      _invalidPaths.TryAdd(newFullPath, 0);
+    }
+  }
+
+  public void OnFileDeleted(string fullPath)
+  {
+    _invalidPaths.TryRemove(fullPath, out _);
+    _DropCachedTransactionFor(fullPath);
+  }
+
+  public int GetInvalidCount(string? sheetsSubfolder = null)
+  {
+    if (string.IsNullOrEmpty(sheetsSubfolder))
+    {
+      return _invalidPaths.Count;
+    }
+    string prefix = Path.Combine(BaseSheetsFolder, sheetsSubfolder).TrimEnd(Path.DirectorySeparatorChar)
+        + Path.DirectorySeparatorChar;
+    int count = 0;
+    foreach (string path in _invalidPaths.Keys)
+    {
+      if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+      {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private bool _IsInvalid(string fullPath)
+  {
+    string ext = Path.GetExtension(fullPath);
+    if (!ExtensionFilter.Contains(ext))
+    {
+      return false;
+    }
+    string nameNoExt = Path.GetFileNameWithoutExtension(fullPath);
+    bool wellFormed = !nameNoExt.Contains('.');
+    if (wellFormed && (Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt)))
+    {
+      return false;
+    }
+    return true;
+  }
+
+  private void _DropCachedTransactionFor(string fullPath)
+  {
+    Guid staleGuid = RenamingTransactions
+        .Where(kvp => string.Equals(kvp.Value.InvalidFullPath, fullPath, StringComparison.OrdinalIgnoreCase))
+        .Select(kvp => kvp.Key)
+        .FirstOrDefault();
+    if (staleGuid != Guid.Empty)
+    {
+      RenamingTransactions.Remove(staleGuid);
+    }
   }
 
   public IEnumerable<IRenamingTransaction>? GetRenamingTransactionsForAllSubfolders(int suggestionsCount)
@@ -91,50 +190,41 @@ internal class Corrector : INameCorrector
     {
       return null;
     }
-
-    List<IRenamingTransaction> result = new();
-    IEnumerable<string> directories = Directory.GetDirectories(BaseSheetsFolder)
-        .Select(d => Path.GetFileName(d));
-    foreach (string directory in directories)
-    {
-      result.AddRange(GetRenamingTransactions(directory, suggestionsCount) ?? Enumerable.Empty<IRenamingTransaction>());
-    }
-    return result;
+    string prefix = BaseSheetsFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    return _BuildTransactionsForPrefix(prefix, suggestionsCount);
   }
 
   /// <returns>Null if <paramref name="sheetsSubfolder"/> does not exist.</returns>
   public IEnumerable<IRenamingTransaction>? GetRenamingTransactions(string sheetsSubfolder, int suggestionsCount)
   {
-    List<IRenamingTransaction> transactions = new();
     string path = Path.Combine(BaseSheetsFolder, sheetsSubfolder);
     if (!Directory.Exists(path))
     {
       return null;
     }
+    string prefix = path.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    return _BuildTransactionsForPrefix(prefix, suggestionsCount);
+  }
 
-    IEnumerable<string> files = Directory.GetFiles(path, "*.*", SearchOption.TopDirectoryOnly)
-        .Where(f => _ExtensionFilter.Contains(Path.GetExtension(f)));
-    foreach (string file in files)
+  /// <summary>
+  /// Walks the in-memory invalid-files index (no filesystem hit), filters by path
+  /// prefix, and reuses or builds the matching <see cref="Transaction"/>. Suggestion
+  /// ranking is paid only when a Transaction is first materialized for a given path.
+  /// </summary>
+  private List<IRenamingTransaction> _BuildTransactionsForPrefix(string prefix, int suggestionsCount)
+  {
+    List<IRenamingTransaction> transactions = new();
+    foreach (string file in _invalidPaths.Keys)
     {
-      string nameNoExt = Path.GetFileNameWithoutExtension(file);
-
-      // The naming convention uses only - and _ as separators; literal dots in
-      // the base name create ambiguity with extensions (Path.GetFileNameWithoutExtension
-      // only strips the trailing extension), so a file like "shake.taylor.png"
-      // would otherwise match a stale "shake.taylor" row in the database and
-      // silently look valid. Enforce the convention here regardless of the DB.
-      bool basenameIsWellFormed = !nameNoExt.Contains('.');
-      if (basenameIsWellFormed && (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt)))
+      if (!file.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
       {
         continue;
       }
-
-      Transaction? transaction = _RenamingTransactions.Values.FirstOrDefault(t => t.InvalidFullPath == file);
-
+      Transaction? transaction = RenamingTransactions.Values.FirstOrDefault(t => t.InvalidFullPath == file);
       if (transaction is null)
       {
-        transaction = new Transaction(BaseSheetsFolder, file, _GetSuggestionsForFile(file, Transaction.MAX_SUGGESTIONS_COUNT), _ExtensionFilter, _multiPageDelimiter);
-        _RenamingTransactions[transaction.Guid] = transaction;
+        transaction = new Transaction(BaseSheetsFolder, file, _GetSuggestionsForFile(file, Transaction.MAX_SUGGESTIONS_COUNT), ExtensionFilter, multiPageDelimiter);
+        RenamingTransactions[transaction.Guid] = transaction;
       }
       transaction.SuggestionsCount = suggestionsCount;
       transactions.Add(transaction);
@@ -144,23 +234,23 @@ internal class Corrector : INameCorrector
 
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, int suggestionIndex)
   {
-    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
+    if (!RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
       return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
     ITransactionResponse response = transaction.Commit(suggestionIndex);
-    _RenamingTransactions.Remove(transactionGuid);
+    RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, string newFileName)
   {
-    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
+    if (!RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
       return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
     ITransactionResponse response = transaction.Commit(newFileName);
-    _RenamingTransactions.Remove(transactionGuid);
+    RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
@@ -169,20 +259,20 @@ internal class Corrector : INameCorrector
   /// </summary>
   public ITransactionResponse DeleteTransaction(Guid transactionGuid)
   {
-    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
+    if (!RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
       return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
     ITransactionResponse response = transaction.Delete();
-    _RenamingTransactions.Remove(transactionGuid);
+    RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
   public IRenamingTransaction? GetTransactionByGuid(Guid transactionGuid)
-      => _RenamingTransactions.TryGetValue(transactionGuid, out Transaction? t) ? t : null;
+      => RenamingTransactions.TryGetValue(transactionGuid, out Transaction? t) ? t : null;
 
   public IRenamingSuggestion CreateSuggestion(IRenamingTransaction transaction, string fileName)
-      => new Suggestion(transaction.InvalidFullPath, fileName, 0, _ExtensionFilter, _multiPageDelimiter);
+      => new Suggestion(transaction.InvalidFullPath, fileName, 0, ExtensionFilter, multiPageDelimiter);
 
   /// <summary>
   /// True when <paramref name="fileNameWithoutExt"/> matches the <c>{song}{delimiter}{digits}</c>
@@ -193,16 +283,16 @@ internal class Corrector : INameCorrector
   private bool _IsMultiPageImage(string fileNameWithoutExt)
   {
     Match match = _multiPageSuffix.Match(fileNameWithoutExt);
-    return match.Success && _Songs.Contains(match.Groups[1].Value);
+    return match.Success && Songs.Contains(match.Groups[1].Value);
   }
 
   private List<Suggestion> _GetSuggestionsForFile(string fullFileName, int suggestionsCount)
   {
     List<Suggestion> suggestions = new();
     string name = Path.GetFileNameWithoutExtension(fullFileName);
-    foreach (string song in _Songs)
+    foreach (string song in Songs)
     {
-      suggestions.Add(new Suggestion(fullFileName, song, _stringSimilarityModel.Distance(name, song), _ExtensionFilter, _multiPageDelimiter));
+      suggestions.Add(new Suggestion(fullFileName, song, _stringSimilarityModel.Distance(name, song), ExtensionFilter, multiPageDelimiter));
     }
     if (suggestionsCount <= 0)
     {
