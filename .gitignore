@@ -366,3 +366,5 @@ _reference/
 
 appsettings.Development.json
 appsettings.json
+
+.claude/
