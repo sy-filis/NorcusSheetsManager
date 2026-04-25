@@ -374,6 +374,12 @@ internal class Manager : IScanService, IWatcherControl
     }
     FileInfo[] images = _GetImagesForPdf(new FileInfo(e.OldFullPath));
     _RenameImages(images, e.OldName, e.Name);
+
+    // After any image-side rename, normalize the new name's group.
+    if (Path.GetExtension(e.FullPath) != ".pdf")
+    {
+      _NormalizeImageFile(e.FullPath);
+    }
   }
 
   private void Watcher_Created(object sender, FileSystemEventArgs e)
