@@ -34,6 +34,7 @@ public static class DependencyInjection
         config.Converter.MultiPageDelimiter,
         sp.GetRequiredService<ILogger<Corrector>>()));
 
+    services.AddSingleton<IFileNameNormalizer, Manager.FileNameNormalizer>();
     services.AddSingleton<Converter>();
     services.AddSingleton<Manager.Manager>();
     services.AddSingleton<IScanService>(sp => sp.GetRequiredService<Manager.Manager>());
