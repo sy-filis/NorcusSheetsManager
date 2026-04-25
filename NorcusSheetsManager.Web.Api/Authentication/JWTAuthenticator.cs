@@ -120,7 +120,7 @@ internal sealed class JWTAuthenticator : ITokenAuthenticator
   private SymmetricSecurityKey GetSymmetricSecurityKey()
   {
     byte[] symmetricKey = Encoding.UTF8.GetBytes(_key);
-    return new (symmetricKey);
+    return new(symmetricKey);
   }
 
   private bool LifetimeValidator(DateTime? notBefore, DateTime? expires, SecurityToken securityToken, TokenValidationParameters validationParameters)

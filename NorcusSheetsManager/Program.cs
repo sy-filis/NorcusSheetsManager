@@ -27,9 +27,9 @@ internal class Program
 {
   public const string ServiceName = "NorcusSheetsManager";
   public const string ServiceDisplayName = "Norcus Sheets Manager";
-  public static readonly string VERSION = GetVersion();
+  public static readonly string Version = GetVersion();
 
-  private static readonly HashSet<string> _KnownHttpMethods = new(StringComparer.OrdinalIgnoreCase)
+  private static readonly HashSet<string> KnownHttpMethods = new(StringComparer.OrdinalIgnoreCase)
   {
     HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete,
     HttpMethods.Patch, HttpMethods.Head, HttpMethods.Options,
@@ -43,7 +43,7 @@ internal class Program
       switch (args[0])
       {
         case "--install-service":
-          return (int)_InstallService();
+          return (int)InstallService();
         case "--uninstall-service":
           return (int)UninstallService();
         case "--help":
@@ -61,7 +61,7 @@ internal class Program
     }
     catch (Exception ex)
     {
-      Console.Error.WriteLine($"Configuration load failed: {ex.Message}");
+      await Console.Error.WriteLineAsync($"Configuration load failed: {ex.Message}");
       return (int)ExitCode.ConfigurationError;
     }
 
@@ -75,7 +75,7 @@ internal class Program
     }
     catch (Exception ex)
     {
-      Console.Error.WriteLine($"Startup failed: {ex.Message}");
+      await Console.Error.WriteLineAsync($"Startup failed: {ex.Message}");
       return (int)ExitCode.StartupFailed;
     }
 
@@ -86,7 +86,7 @@ internal class Program
     }
     catch (Exception ex)
     {
-      Console.Error.WriteLine($"Unhandled error: {ex.Message}");
+      await Console.Error.WriteLineAsync($"Unhandled error: {ex.Message}");
       return (int)ExitCode.GenericError;
     }
   }
@@ -121,9 +121,9 @@ internal class Program
       // request that hits an auth-protected endpoint.
       _ = app.Services.GetRequiredService<ITokenAuthenticator>();
 
-      app.Use(static async (HttpContext ctx, RequestDelegate next) =>
+      app.Use(static async (ctx, next) =>
       {
-        if (!_KnownHttpMethods.Contains(ctx.Request.Method))
+        if (!KnownHttpMethods.Contains(ctx.Request.Method))
         {
           ctx.Response.StatusCode = StatusCodes.Status501NotImplemented;
           return;
@@ -182,19 +182,25 @@ internal class Program
       .Produces(StatusCodes.Status200OK)
       .Produces(StatusCodes.Status503ServiceUnavailable);
 
-      logger.LogInformation(
+      if (logger.IsEnabled(LogLevel.Information))
+      {
+        logger.LogInformation(
           "Norcus Sheets Manager {Version} started — API at {Url}, Scallar at {Url}/scalar, health at {Url}/health.",
-          VERSION, config.ApiServer.Url, config.ApiServer.Url, config.ApiServer.Url);
+          Version, config.ApiServer.Url, config.ApiServer.Url, config.ApiServer.Url);
+      }
     }
     else
     {
-      logger.LogInformation("Norcus Sheets Manager {Version} started — file watcher only (API disabled by config).", VERSION);
+      if (logger.IsEnabled(LogLevel.Information))
+      {
+        logger.LogInformation("Norcus Sheets Manager {Version} started — file watcher only (API disabled by config).", Version);
+      }
     }
 
     return app;
   }
 
-  private static ExitCode _InstallService()
+  private static ExitCode InstallService()
   {
     if (!OperatingSystem.IsWindows())
     {
@@ -266,7 +272,7 @@ internal class Program
   private static void PrintUsage()
   {
     Console.WriteLine($$"""
-      Norcus Sheets Manager {{VERSION}}
+      Norcus Sheets Manager {{Version}}
 
       Usage:
         NorcusSheetsManager                        Run as daemon (file watcher + REST API).
