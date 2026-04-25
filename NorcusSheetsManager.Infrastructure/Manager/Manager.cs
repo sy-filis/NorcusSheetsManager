@@ -25,6 +25,13 @@ internal class Manager : IScanService, IWatcherControl
       _logger.LogError(e, "SheetsPath is not configured.");
       throw e;
     }
+    if (!Directory.Exists(Config.Converter.SheetsPath))
+    {
+      Exception e = new DirectoryNotFoundException(
+          $"SheetsPath '{Config.Converter.SheetsPath}' does not exist.");
+      _logger.LogError(e, "SheetsPath '{Path}' does not exist.", Config.Converter.SheetsPath);
+      throw e;
+    }
 
     _Converter = converter;
     _Normalizer = normalizer;
