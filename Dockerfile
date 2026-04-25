@@ -27,9 +27,30 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /app ./
 
-# Default API port from ConfigLoader.APIServerSettings.Port
+# Default API port from ApiServer.Url in appsettings.json.
 EXPOSE 4434
 
-# NorcusSheetsManagerCfg.xml and NLog's debug.log/error.log live next to the
-# binary. Mount a volume at /app (or rebind specific files) to persist them.
-ENTRYPOINT ["./NorcusSheetsManager", "--daemon"]
+# Mount points expected at runtime:
+#
+#   /sheets                       host folder containing the sheet-music tree.
+#                                 In the mounted appsettings.json set
+#                                 Converter.SheetsPath to "/sheets".
+#
+#   /app/appsettings.json         host config (paths, DB credentials, JWT key).
+#                                 Bind-mount the file (read-only is fine).
+#
+#   /app/debug.log /app/error.log NLog rolling files. Bind-mount them or the
+#                                 enclosing directory if you need persistence
+#                                 across container restarts.
+#
+# Example:
+#   docker run -d \
+#       -v /host/sheets:/sheets \
+#       -v /host/config/appsettings.json:/app/appsettings.json:ro \
+#       -v /host/logs/debug.log:/app/debug.log \
+#       -v /host/logs/error.log:/app/error.log \
+#       -p 4434:4434 \
+#       norcus-sheets-manager
+VOLUME ["/sheets"]
+
+ENTRYPOINT ["./NorcusSheetsManager"]
