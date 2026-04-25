@@ -27,13 +27,13 @@ internal sealed class FileNameNormalizer(
     _RecoverTempFiles(folderPath);
 
     HashSet<string> imageExts = _GetImageExtensions();
-    var grouped = _EnumerateImages(folderPath, imageExts)
+    IEnumerable<IGrouping<string, (FileInfo File, (string Base, int? Page, string Ext)? Parsed)>> grouped = _EnumerateImages(folderPath, imageExts)
         .Select(f => (File: f, Parsed: _Parse(f.Name)))
         .Where(p => p.Parsed.HasValue)
         .GroupBy(p => p.Parsed!.Value.Base, StringComparer.OrdinalIgnoreCase);
 
     int touched = 0, renamed = 0;
-    foreach (var group in grouped)
+    foreach (IGrouping<string, (FileInfo File, (string Base, int? Page, string Ext)? Parsed)> group in grouped)
     {
       int before = renamed;
       renamed += _NormalizeGroup(folderPath, group.Key, group.Select(p => p.File).ToList());
@@ -61,10 +61,10 @@ internal sealed class FileNameNormalizer(
     _RecoverTempFiles(folderPath);
 
     HashSet<string> imageExts = _GetImageExtensions();
-    List<FileInfo> files = _EnumerateImages(folderPath, imageExts)
+    var files = _EnumerateImages(folderPath, imageExts)
         .Where(f =>
         {
-          var parsed = _Parse(f.Name);
+          (string Base, int? Page, string Ext)? parsed = _Parse(f.Name);
           return parsed.HasValue && string.Equals(parsed.Value.Base, baseName, StringComparison.OrdinalIgnoreCase);
         })
         .ToList();
@@ -90,7 +90,7 @@ internal sealed class FileNameNormalizer(
 
     // Phase 1: move each source to <source>.tmp
     var phase1 = new List<(string Tmp, string Final, string OriginalName)>();
-    foreach (var (from, to) in renames)
+    foreach ((string? from, string? to) in renames)
     {
       string tmp = from + _TempSuffix;
       try
@@ -115,7 +115,7 @@ internal sealed class FileNameNormalizer(
 
     // Phase 2: move each .tmp to its final name.
     int renamedCount = 0;
-    foreach (var (tmp, final, original) in phase1)
+    foreach ((string? tmp, string? final, string? original) in phase1)
     {
       try
       {
@@ -153,7 +153,7 @@ internal sealed class FileNameNormalizer(
 
     if (parsed.Count == 1)
     {
-      var only = parsed[0];
+      (FileInfo File, (string Base, int? Page, string Ext) P) only = parsed[0];
       string targetName = $"{baseName}.{only.P.Ext}";
       string targetPath = Path.Combine(folderPath, targetName);
       if (string.Equals(only.File.FullName, targetPath, StringComparison.OrdinalIgnoreCase))
