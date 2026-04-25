@@ -10,7 +10,7 @@ public class Converter
   private readonly ILogger<Converter> _logger;
   private readonly MagickReadSettings _magickReadSettings;
   public MagickFormat OutFileFormat { get; }
-  public string MultiPageDelimiter { get; }
+  public char MultiPageDelimiter { get; }
   public int MultiPageCounterLength { get; }
   public int MultiPageInitNumber { get; }
   public int DPI { get; }
@@ -31,9 +31,9 @@ public class Converter
     ConverterSettings s = config.Converter;
     OutFileFormat = s.OutFileFormat;
     MultiPageDelimiter = s.MultiPageDelimiter;
-    MultiPageCounterLength = s.MultiPageCounterLength;
-    MultiPageInitNumber = s.MultiPageInitNumber;
-    DPI = s.DPI;
+    MultiPageCounterLength = (int)s.MultiPageCounterLength;
+    MultiPageInitNumber = (int)s.MultiPageInitNumber;
+    DPI = (int)s.DPI;
     TransparentBackground = s.TransparentBackground;
     CropImage = s.CropImage;
 

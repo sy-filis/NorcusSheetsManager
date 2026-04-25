@@ -22,6 +22,8 @@ public static class ConfigLoader
         .AddEnvironmentVariables()
         .Build();
 
-    return configuration.Get<AppConfig>() ?? new AppConfig();
+    AppConfig config = configuration.Get<AppConfig>() ?? new AppConfig();
+    ConfigValidator.ValidateRecursive(config);
+    return config;
   }
 }

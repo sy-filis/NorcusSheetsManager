@@ -14,14 +14,7 @@ internal sealed class DbRefreshHostedService(
   {
     _ReloadOnce(initial: true);
 
-    int intervalSec = config.DbConnection.RefreshIntervalSeconds;
-    if (intervalSec <= 0)
-    {
-      logger.LogInformation("DbConnection.RefreshIntervalSeconds is {Interval}; periodic refresh disabled.", intervalSec);
-      return;
-    }
-
-    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSec));
+    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(config.DbConnection.RefreshIntervalSeconds));
     try
     {
       while (await timer.WaitForNextTickAsync(stoppingToken))

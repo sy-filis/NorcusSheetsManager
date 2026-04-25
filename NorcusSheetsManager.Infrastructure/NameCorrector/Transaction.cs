@@ -2,7 +2,12 @@ using NorcusSheetsManager.Application.Abstractions.Models;
 
 namespace NorcusSheetsManager.Infrastructure.NameCorrector;
 
-internal class Transaction(string baseFolder, string invalidFullName, IEnumerable<IRenamingSuggestion> suggestions) : IRenamingTransaction
+internal class Transaction(
+    string baseFolder,
+    string invalidFullName,
+    IEnumerable<IRenamingSuggestion> suggestions,
+    IEnumerable<string> watchedExtensions,
+    char multiPageDelimiter) : IRenamingTransaction
 {
   public const int MAX_SUGGESTIONS_COUNT = 10;
   private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
@@ -80,7 +85,7 @@ internal class Transaction(string baseFolder, string invalidFullName, IEnumerabl
     }
 
     string fileNameWithoutExt = Path.GetFileNameWithoutExtension(newFileName);
-    var suggestion = new Suggestion(InvalidFullPath, fileNameWithoutExt, 0);
+    var suggestion = new Suggestion(InvalidFullPath, fileNameWithoutExt, 0, watchedExtensions, multiPageDelimiter);
     if (suggestion.InvalidFullPath == suggestion.FullPath)
     {
       return new TransactionResponse(false, $"New file name must be different from invalid file name ({InvalidFileName})");

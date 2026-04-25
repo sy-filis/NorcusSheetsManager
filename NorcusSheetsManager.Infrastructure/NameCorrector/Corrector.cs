@@ -14,6 +14,7 @@ internal class Corrector : INameCorrector
   private Dictionary<Guid, Transaction> _RenamingTransactions { get; }
   private IEnumerable<string> _ExtensionFilter { get; set; }
   private readonly Regex _multiPageSuffix;
+  private readonly char _multiPageDelimiter;
   public string BaseSheetsFolder { get; }
   public bool HasSongs => _Songs.Count > 0;
   public IDbLoader DbLoader { get; }
@@ -23,7 +24,7 @@ internal class Corrector : INameCorrector
       IDbLoader dbLoader,
       string baseSheetsFolder,
       IEnumerable<string> extensionsFilter,
-      string multiPageDelimiter,
+      char multiPageDelimiter,
       ILogger<Corrector> logger)
   {
     _logger = logger;
@@ -34,8 +35,9 @@ internal class Corrector : INameCorrector
     _stringSimilarityModel = new QGram(2);
     _RenamingTransactions = new();
     _ExtensionFilter = extensionsFilter;
+    _multiPageDelimiter = multiPageDelimiter;
     // Matches "{anything}{delimiter}{digits}" as produced by Converter for multi-page PDFs.
-    _multiPageSuffix = new Regex($@"^(.+){Regex.Escape(multiPageDelimiter)}\d+$", RegexOptions.Compiled);
+    _multiPageSuffix = new Regex($@"^(.+){Regex.Escape(multiPageDelimiter.ToString())}\d+$", RegexOptions.Compiled);
   }
 
   /// <returns>true if more than 0 songs were loaded from database</returns>
@@ -131,7 +133,7 @@ internal class Corrector : INameCorrector
 
       if (transaction is null)
       {
-        transaction = new Transaction(BaseSheetsFolder, file, _GetSuggestionsForFile(file, Transaction.MAX_SUGGESTIONS_COUNT));
+        transaction = new Transaction(BaseSheetsFolder, file, _GetSuggestionsForFile(file, Transaction.MAX_SUGGESTIONS_COUNT), _ExtensionFilter, _multiPageDelimiter);
         _RenamingTransactions[transaction.Guid] = transaction;
       }
       transaction.SuggestionsCount = suggestionsCount;
@@ -180,7 +182,7 @@ internal class Corrector : INameCorrector
       => _RenamingTransactions.TryGetValue(transactionGuid, out Transaction? t) ? t : null;
 
   public IRenamingSuggestion CreateSuggestion(IRenamingTransaction transaction, string fileName)
-      => new Suggestion(transaction.InvalidFullPath, fileName, 0);
+      => new Suggestion(transaction.InvalidFullPath, fileName, 0, _ExtensionFilter, _multiPageDelimiter);
 
   /// <summary>
   /// True when <paramref name="fileNameWithoutExt"/> matches the <c>{song}{delimiter}{digits}</c>
@@ -200,7 +202,7 @@ internal class Corrector : INameCorrector
     string name = Path.GetFileNameWithoutExtension(fullFileName);
     foreach (string song in _Songs)
     {
-      suggestions.Add(new Suggestion(fullFileName, song, _stringSimilarityModel.Distance(name, song)));
+      suggestions.Add(new Suggestion(fullFileName, song, _stringSimilarityModel.Distance(name, song), _ExtensionFilter, _multiPageDelimiter));
     }
     if (suggestionsCount <= 0)
     {

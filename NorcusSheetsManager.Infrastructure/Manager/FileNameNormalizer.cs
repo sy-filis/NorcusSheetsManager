@@ -13,7 +13,7 @@ internal sealed class FileNameNormalizer(
   private const string _TempSuffix = ".tmp";
 
   private readonly Regex _NumberedPattern = new(
-      $@"^(.+){Regex.Escape(config.Converter.MultiPageDelimiter)}(\d+)\.([^.]+)$",
+      $@"^(.+){Regex.Escape(config.Converter.MultiPageDelimiter.ToString())}(\d+)\.([^.]+)$",
       RegexOptions.Compiled);
 
   public void NormalizeFolder(string folderPath)
@@ -137,8 +137,8 @@ internal sealed class FileNameNormalizer(
   /// </summary>
   private IReadOnlyList<(string From, string To)> _PlanRenames(string folderPath, string baseName, IReadOnlyList<FileInfo> files)
   {
-    int counterLength = config.Converter.MultiPageCounterLength;
-    int initNumber = config.Converter.MultiPageInitNumber;
+    int counterLength = (int)config.Converter.MultiPageCounterLength;
+    int initNumber = (int)config.Converter.MultiPageInitNumber;
 
     var parsed = files
         .Select(f => (File: f, Parsed: _Parse(f.Name)))

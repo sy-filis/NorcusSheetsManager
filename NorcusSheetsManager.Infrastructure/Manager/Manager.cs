@@ -582,7 +582,7 @@ internal class Manager : IScanService, IWatcherControl
     string name = Path.GetFileNameWithoutExtension(pdfFile.Name);
     var keep = new HashSet<string>(freshImages.Select(f => f.FullName), StringComparer.OrdinalIgnoreCase);
 
-    string orphanPattern = $@"^{Regex.Escape(name)}({Regex.Escape(Config.Converter.MultiPageDelimiter)}\d+)?(\s\(\d+\))?\.[^.]+$";
+    string orphanPattern = $@"^{Regex.Escape(name)}({Regex.Escape(Config.Converter.MultiPageDelimiter.ToString())}\d+)?(\s\(\d+\))?\.[^.]+$";
     var rx = new Regex(orphanPattern, RegexOptions.IgnoreCase);
 
     foreach (string candidate in Directory.GetFiles(dir, $"{name}*", SearchOption.TopDirectoryOnly))

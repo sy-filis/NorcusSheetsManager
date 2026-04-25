@@ -65,12 +65,6 @@ internal class Program
       return (int)ExitCode.ConfigurationError;
     }
 
-    if (string.IsNullOrEmpty(config.Converter.SheetsPath))
-    {
-      Console.Error.WriteLine("Configuration error: Converter.SheetsPath is required.");
-      return (int)ExitCode.ConfigurationError;
-    }
-
     WebApplication app;
     try
     {
