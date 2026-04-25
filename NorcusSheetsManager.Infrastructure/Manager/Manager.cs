@@ -74,6 +74,10 @@ internal class Manager : IScanService, IWatcherControl
   public void StartWatching(bool verbose = false)
   {
     _IsWatcherEnabled = true;
+    foreach (FileSystemWatcher watcher in _FileSystemWatchers)
+    {
+      watcher.EnableRaisingEvents = true;
+    }
     if (verbose)
     {
       _logger.LogDebug("File system watcher started.");
@@ -82,6 +86,13 @@ internal class Manager : IScanService, IWatcherControl
 
   public void StopWatching(bool verbose = false)
   {
+    // Disable kernel-level event generation BEFORE flipping the flag so that
+    // renames performed by callers under StopWatching (e.g. FileNameNormalizer's
+    // two-phase rename) don't queue events that fire once the flag is back on.
+    foreach (FileSystemWatcher watcher in _FileSystemWatchers)
+    {
+      watcher.EnableRaisingEvents = false;
+    }
     _IsWatcherEnabled = false;
     if (verbose)
     {

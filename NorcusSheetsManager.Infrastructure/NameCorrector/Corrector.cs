@@ -10,8 +10,8 @@ namespace NorcusSheetsManager.Infrastructure.NameCorrector;
 internal class Corrector : INameCorrector
 {
   private readonly ILogger<Corrector> _logger;
-  private List<string> _Songs { get; set; }
-  private List<Transaction> _RenamingTransactions { get; set; }
+  private HashSet<string> _Songs { get; set; }
+  private Dictionary<Guid, Transaction> _RenamingTransactions { get; }
   private IEnumerable<string> _ExtensionFilter { get; set; }
   private readonly Regex _multiPageSuffix;
   public string BaseSheetsFolder { get; }
@@ -32,7 +32,7 @@ internal class Corrector : INameCorrector
     _Songs = [];
 
     _stringSimilarityModel = new QGram(2);
-    _RenamingTransactions = new List<Transaction>();
+    _RenamingTransactions = new();
     _ExtensionFilter = extensionsFilter;
     // Matches "{anything}{delimiter}{digits}" as produced by Converter for multi-page PDFs.
     _multiPageSuffix = new Regex($@"^(.+){Regex.Escape(multiPageDelimiter)}\d+$", RegexOptions.Compiled);
@@ -42,7 +42,37 @@ internal class Corrector : INameCorrector
   public bool ReloadData()
   {
     DbLoader.ReloadDataAsync().Wait();
-    _Songs = DbLoader.GetSongNames().ToList();
+    var fresh = DbLoader.GetSongNames().ToHashSet();
+
+    bool changed = !fresh.SetEquals(_Songs);
+    _Songs = fresh;
+
+    // When the song list changes, files that were invalid may now be valid
+    // (their cached transaction is obsolete and must be dropped). The inverse —
+    // files that became invalid because their matching song was renamed or
+    // removed — is handled by GetRenamingTransactions on the next fetch: it
+    // creates fresh transactions for any in-folder file not in _Songs and not
+    // already cached, so newly-invalid files get new GUIDs naturally.
+    if (changed && _RenamingTransactions.Count > 0)
+    {
+      var toDrop = _RenamingTransactions
+          .Where(kvp =>
+          {
+            string nameNoExt = Path.GetFileNameWithoutExtension(kvp.Value.InvalidFullPath);
+            bool wellFormed = !nameNoExt.Contains('.');
+            return wellFormed && (_Songs.Contains(nameNoExt) || _IsMultiPageImage(nameNoExt));
+          })
+          .Select(kvp => kvp.Key)
+          .ToList();
+      foreach (Guid guid in toDrop)
+      {
+        _RenamingTransactions.Remove(guid);
+      }
+      if (toDrop.Count > 0)
+      {
+        _logger.LogInformation("Dropped {Dropped} cached transaction(s) whose files became valid after DB refresh.", toDrop.Count);
+      }
+    }
 
     if (_Songs.Count == 0)
     {
@@ -97,12 +127,12 @@ internal class Corrector : INameCorrector
         continue;
       }
 
-      Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.InvalidFullPath == file);
+      Transaction? transaction = _RenamingTransactions.Values.FirstOrDefault(t => t.InvalidFullPath == file);
 
       if (transaction is null)
       {
         transaction = new Transaction(BaseSheetsFolder, file, _GetSuggestionsForFile(file, Transaction.MAX_SUGGESTIONS_COUNT));
-        _RenamingTransactions.Add(transaction);
+        _RenamingTransactions[transaction.Guid] = transaction;
       }
       transaction.SuggestionsCount = suggestionsCount;
       transactions.Add(transaction);
@@ -112,29 +142,23 @@ internal class Corrector : INameCorrector
 
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, int suggestionIndex)
   {
-    Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    ITransactionResponse response = transaction?.Commit(suggestionIndex)
-        ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
-
-    if (transaction is not null)
+    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
-      _RenamingTransactions.Remove(transaction);
+      return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
-
+    ITransactionResponse response = transaction.Commit(suggestionIndex);
+    _RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
   public ITransactionResponse CommitTransactionByGuid(Guid transactionGuid, string newFileName)
   {
-    Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    ITransactionResponse response = transaction?.Commit(newFileName)
-        ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
-
-    if (transaction is not null)
+    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
-      _RenamingTransactions.Remove(transaction);
+      return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
-
+    ITransactionResponse response = transaction.Commit(newFileName);
+    _RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
@@ -143,20 +167,17 @@ internal class Corrector : INameCorrector
   /// </summary>
   public ITransactionResponse DeleteTransaction(Guid transactionGuid)
   {
-    Transaction? transaction = _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
-    ITransactionResponse response = transaction?.Delete()
-        ?? new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
-
-    if (transaction is not null)
+    if (!_RenamingTransactions.TryGetValue(transactionGuid, out Transaction? transaction))
     {
-      _RenamingTransactions.Remove(transaction);
+      return new TransactionResponse(false, $"Transaction {transactionGuid} does not exist");
     }
-
+    ITransactionResponse response = transaction.Delete();
+    _RenamingTransactions.Remove(transactionGuid);
     return response;
   }
 
   public IRenamingTransaction? GetTransactionByGuid(Guid transactionGuid)
-      => _RenamingTransactions.FirstOrDefault(t => t.Guid == transactionGuid);
+      => _RenamingTransactions.TryGetValue(transactionGuid, out Transaction? t) ? t : null;
 
   public IRenamingSuggestion CreateSuggestion(IRenamingTransaction transaction, string fileName)
       => new Suggestion(transaction.InvalidFullPath, fileName, 0);
