@@ -30,6 +30,8 @@ internal sealed class Shutdown : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.App)
+    .WithSummary("Shut the application down")
+    .WithDescription("Stops the host via IHostApplicationLifetime.StopApplication. Mirrors the X/T interactive console command — useful when running with --no-console where keyboard control isn't available. Admin only.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden);

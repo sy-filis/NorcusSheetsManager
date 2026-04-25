@@ -47,6 +47,8 @@ internal sealed class FixName : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.Corrector)
+    .WithSummary("Apply a rename suggestion")
+    .WithDescription("Commits a rename for an open transaction. If both FileName and SuggestionIndex are supplied, SuggestionIndex wins; otherwise the non-null value is used. Requires admin, or the JWT 'uuid' claim must match a known user.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .ProducesProblem(StatusCodes.Status401Unauthorized)

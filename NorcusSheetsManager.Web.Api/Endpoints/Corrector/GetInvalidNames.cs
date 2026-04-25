@@ -39,6 +39,8 @@ internal sealed class GetInvalidNames : IEndpoint
         CancellationToken cancellationToken)
             => HandleAsync(null, suggestionsCount, auth, handler, ctx, cancellationToken))
       .WithTags(Tags.Corrector)
+      .WithSummary("List invalid filenames (N suggestions each)")
+      .WithDescription("Returns invalid filenames across every folder, each with up to {suggestionsCount} rename suggestions (capped at 10). Omit {suggestionsCount} to receive one suggestion per entry. Non-admin callers receive only entries from their own folder.")
       .Produces<object[]>(StatusCodes.Status200OK)
       .WithResponseExample(StatusCodes.Status200OK, _Example)
       .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -52,6 +54,8 @@ internal sealed class GetInvalidNames : IEndpoint
         CancellationToken cancellationToken)
             => HandleAsync(folder, suggestionsCount, auth, handler, ctx, cancellationToken))
       .WithTags(Tags.Corrector)
+      .WithSummary("List invalid filenames in a folder (N suggestions each)")
+      .WithDescription("Returns invalid filenames within the given folder, each with up to {suggestionsCount} rename suggestions (capped at 10). Omit {suggestionsCount} to receive one suggestion per entry. Non-admin callers requesting a folder other than their own receive HTTP 403.")
       .Produces<object[]>(StatusCodes.Status200OK)
       .WithResponseExample(StatusCodes.Status200OK, _Example)
       .ProducesProblem(StatusCodes.Status401Unauthorized);

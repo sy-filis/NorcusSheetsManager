@@ -31,6 +31,8 @@ internal sealed class AutoFixInvalidNames : IEndpoint
       return result.Match(Results.Ok, CustomResults.Problem);
     })
     .WithTags(Tags.Corrector)
+    .WithSummary("Auto-apply the top suggestion to every invalid filename")
+    .WithDescription("Walks every invalid filename and commits the closest-match suggestion for each. Mirrors the C/N interactive console command. Admin only.")
     .Produces<AutoFixInvalidNamesResponse>(StatusCodes.Status200OK)
     .WithResponseExample(StatusCodes.Status200OK, new AutoFixInvalidNamesResponse(
         TotalCount: 5,

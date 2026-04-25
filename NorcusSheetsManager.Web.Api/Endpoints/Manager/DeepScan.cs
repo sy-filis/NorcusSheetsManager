@@ -30,6 +30,8 @@ internal sealed class DeepScan : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.Manager)
+    .WithSummary("Run a Deep Scan")
+    .WithDescription("Verifies every PDF has the correct number of images for its page count, and reconverts mismatches. Returns 200 immediately; the scan runs in the background. Admin only.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden);

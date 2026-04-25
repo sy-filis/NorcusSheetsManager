@@ -44,6 +44,8 @@ internal sealed class CheckFileExists : IEndpoint
       return result.Match(Results.Ok, CustomResults.Problem);
     })
     .WithTags(Tags.Corrector)
+    .WithSummary("Check whether a target filename is already used")
+    .WithDescription("For an open rename transaction, checks whether the proposed filename is already in use in that folder. Only JWT validity is required — no admin or folder-membership check.")
     .Produces<IRenamingSuggestion>(StatusCodes.Status200OK)
     .WithResponseExample(StatusCodes.Status200OK, new
     {

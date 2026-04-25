@@ -23,6 +23,8 @@ internal sealed class GetInvalidNamesCount : IEndpoint
         CancellationToken cancellationToken)
             => HandleAsync(null, auth, handler, ctx, cancellationToken))
       .WithTags(Tags.Corrector)
+      .WithSummary("Count files with invalid names")
+      .WithDescription("Returns the total number of incorrectly named files across every folder. Non-admin callers receive only the count for their own folder, resolved from the JWT 'uuid' claim.")
       .Produces<Response>(StatusCodes.Status200OK)
       .WithResponseExample(StatusCodes.Status200OK, new Response(7))
       .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -35,6 +37,8 @@ internal sealed class GetInvalidNamesCount : IEndpoint
         CancellationToken cancellationToken)
             => HandleAsync(folder, auth, handler, ctx, cancellationToken))
       .WithTags(Tags.Corrector)
+      .WithSummary("Count invalid names in a folder")
+      .WithDescription("Returns the count of incorrectly named files in the given folder. Non-admin callers requesting a folder other than their own receive HTTP 403.")
       .Produces<Response>(StatusCodes.Status200OK)
       .WithResponseExample(StatusCodes.Status200OK, new Response(3))
       .ProducesProblem(StatusCodes.Status401Unauthorized);

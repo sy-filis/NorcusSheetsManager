@@ -44,6 +44,8 @@ internal sealed class DeleteInvalidFile : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.Corrector)
+    .WithSummary("Delete the invalid file and close the transaction")
+    .WithDescription("Deletes the invalid file referenced by the transaction GUID and closes the transaction. Requires admin, or the JWT 'uuid' claim must match a known user.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .ProducesProblem(StatusCodes.Status401Unauthorized)

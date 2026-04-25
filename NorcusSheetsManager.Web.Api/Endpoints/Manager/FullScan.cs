@@ -30,6 +30,8 @@ internal sealed class FullScan : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.Manager)
+    .WithSummary("Run a Full Scan")
+    .WithDescription("Verifies every PDF has matching images and reconverts any that don't. Returns 200 immediately; the scan runs in the background. Admin only.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden);

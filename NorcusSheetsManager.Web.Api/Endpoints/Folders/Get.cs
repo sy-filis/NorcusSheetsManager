@@ -29,6 +29,8 @@ internal sealed class Get : IEndpoint
       return result.Match(Results.Ok, CustomResults.Problem);
     })
     .WithTags(Tags.Folders)
+    .WithSummary("List sheet folders")
+    .WithDescription("Returns the list of top-level sheet folders. Folders whose name begins with a dot are excluded.")
     .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
     .WithResponseExample(StatusCodes.Status200OK, new[] { "teri", "jakub", "shared" })
     .ProducesProblem(StatusCodes.Status401Unauthorized);

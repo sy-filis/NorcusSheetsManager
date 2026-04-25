@@ -30,6 +30,8 @@ internal sealed class ForceConvertAll : IEndpoint
       return result.Match(() => Results.Ok(), CustomResults.Problem);
     })
     .WithTags(Tags.Manager)
+    .WithSummary("Force reconvert every PDF")
+    .WithDescription("Deletes existing images and re-converts every PDF. Long-running. Returns 200 immediately; the conversion runs in the background. Admin only.")
     .Produces(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden);
