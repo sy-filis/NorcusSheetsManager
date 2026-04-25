@@ -7,4 +7,5 @@ public class DatabaseConnection
   public string Database { get; set; } = "database";
   public string UserId { get; set; } = "user";
   public string Password { get; set; } = "";
+  public int RefreshIntervalSeconds { get; set; } = 60;
 }

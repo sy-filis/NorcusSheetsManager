@@ -28,16 +28,7 @@ internal class Corrector : INameCorrector
     _logger = logger;
     DbLoader = dbLoader;
     BaseSheetsFolder = baseSheetsFolder;
-    _Songs = new List<string>(dbLoader.GetSongNames());
-
-    if (_Songs.Count == 0)
-    {
-      _logger.LogWarning("No songs were loaded from the database.");
-    }
-    else
-    {
-      _logger.LogInformation("Connected to the database; {Count} songs loaded.", _Songs.Count);
-    }
+    _Songs = [];
 
     _stringSimilarityModel = new QGram(2);
     _RenamingTransactions = new List<Transaction>();
@@ -57,6 +48,7 @@ internal class Corrector : INameCorrector
       _logger.LogWarning("No songs were loaded from database.");
       return false;
     }
+    _logger.LogInformation("Database reloaded; {Count} songs loaded.", _Songs.Count);
     return true;
   }
 

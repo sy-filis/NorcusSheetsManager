@@ -44,6 +44,7 @@ public static class DependencyInjection
     services.AddSingleton<IAppLifecycle, AppLifecycle>();
 
     services.AddHostedService<ManagerHostedService>();
+    services.AddHostedService<DbRefreshHostedService>();
 
     services.AddHealthChecks()
         .AddCheck<SheetsFolderHealthCheck>("sheets-folder", tags: ["ready"])

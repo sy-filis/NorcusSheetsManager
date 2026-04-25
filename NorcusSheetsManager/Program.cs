@@ -123,7 +123,7 @@ internal class Program
       });
 
       logger.LogInformation(
-          "Norcus Sheets Manager {Version} started — API at {Url}, Swagger at {Url}/swagger, health at {Url}/health.",
+          "Norcus Sheets Manager {Version} started — API at {Url}, Scallar at {Url}/scalar, health at {Url}/health.",
           VERSION, config.ApiServer.Url, config.ApiServer.Url, config.ApiServer.Url);
     }
     else
