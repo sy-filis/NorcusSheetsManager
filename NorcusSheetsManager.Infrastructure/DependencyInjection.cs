@@ -15,7 +15,7 @@ public static class DependencyInjection
   {
     services.AddSingleton(config);
 
-    services.AddSingleton<IDbLoader>(sp =>
+    services.AddSingleton<IDbLoader>(_ =>
     {
       DatabaseConnection db = config.DbConnection;
       if (File.Exists(db.Database) && Path.GetExtension(db.Database) == ".txt")
@@ -23,8 +23,7 @@ public static class DependencyInjection
         return new DbFileLoader(db.Database) { UserId = db.UserId };
       }
       return new MySQLLoader(
-          db.Server, db.Port, db.Database, db.UserId, db.Password,
-          sp.GetRequiredService<ILogger<MySQLLoader>>());
+          db.Server, db.Port, db.Database, db.UserId, db.Password);
     });
 
     services.AddSingleton<INameCorrector>(sp => new Corrector(

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using NorcusSheetsManager.Application.Abstractions.Models;
 
@@ -9,8 +8,7 @@ internal class MySQLLoader(
     ushort port,
     string database,
     string userId,
-    string password,
-    ILogger<MySQLLoader> logger) : IDbLoader
+    string password) : IDbLoader
 {
   public string Server { get; init; } = server;
   public ushort Port { get; init; } = port;
@@ -55,19 +53,10 @@ internal class MySQLLoader(
       return;
     }
 
-    try
-    {
-      using var connection = new MySqlConnection(ConnectionString);
-      await connection.OpenAsync();
-      _Songs = await _GetSongs(connection);
-      _Users = await _GetUsers(connection);
-    }
-    catch (Exception e)
-    {
-      logger.LogError(e, "MySQL load failed for database {Database} on {Server}:{Port}.", Database, Server, Port);
-      _Songs = new();
-      _Users = new();
-    }
+    await using var connection = new MySqlConnection(ConnectionString);
+    await connection.OpenAsync();
+    _Songs = await _GetSongs(connection);
+    _Users = await _GetUsers(connection);
   }
 
   private async Task<List<string>> _GetSongs(MySqlConnection connection)
