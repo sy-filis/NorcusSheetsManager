@@ -14,9 +14,9 @@ internal sealed class FixName : IEndpoint
 {
   public sealed class Request
   {
-    public Guid TransactionGuid { get; set; }
-    public string? FileName { get; set; }
-    public int? SuggestionIndex { get; set; }
+    public Guid TransactionGuid { get; init; }
+    public string? FileName { get; init; }
+    public int? SuggestionIndex { get; init; }
   }
 
   public void MapEndpoint(IEndpointRouteBuilder app)

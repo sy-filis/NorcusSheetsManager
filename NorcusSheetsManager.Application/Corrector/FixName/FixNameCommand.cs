@@ -4,9 +4,9 @@ namespace NorcusSheetsManager.Application.Corrector.FixName;
 
 public sealed class FixNameCommand : ICommand
 {
-  public Guid TransactionGuid { get; set; }
-  public string? FileName { get; set; }
-  public int? SuggestionIndex { get; set; }
-  public bool IsAdmin { get; set; }
-  public Guid UserId { get; set; }
+  public Guid TransactionGuid { get; init; }
+  public string? FileName { get; init; }
+  public int? SuggestionIndex { get; init; }
+  public bool IsAdmin { get; init; }
+  public Guid UserId { get; init; }
 }

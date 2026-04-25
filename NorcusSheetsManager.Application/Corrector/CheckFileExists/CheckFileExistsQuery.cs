@@ -5,6 +5,6 @@ namespace NorcusSheetsManager.Application.Corrector.CheckFileExists;
 
 public sealed class CheckFileExistsQuery : IQuery<IRenamingSuggestion>
 {
-  public Guid TransactionGuid { get; set; }
-  public string FileName { get; set; } = "";
+  public Guid TransactionGuid { get; init; }
+  public string FileName { get; init; } = "";
 }

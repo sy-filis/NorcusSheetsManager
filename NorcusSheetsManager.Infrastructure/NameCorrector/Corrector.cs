@@ -12,7 +12,7 @@ internal class Corrector : INameCorrector
   private readonly ILogger<Corrector> _logger;
   private HashSet<string> _Songs { get; set; }
   private Dictionary<Guid, Transaction> _RenamingTransactions { get; }
-  private IEnumerable<string> _ExtensionFilter { get; set; }
+  private IEnumerable<string> _ExtensionFilter { get; init; }
   private readonly Regex _multiPageSuffix;
   private readonly char _multiPageDelimiter;
   public string BaseSheetsFolder { get; }

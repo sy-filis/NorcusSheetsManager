@@ -4,8 +4,8 @@ namespace NorcusSheetsManager.Infrastructure.NameCorrector;
 
 public class NorcusUser : INorcusUser
 {
-  public Guid Guid { get; set; } = Guid.Empty;
-  public string Folder { get; set; } = "";
-  public string Email { get; set; } = "";
-  public string Name { get; set; } = "";
+  public Guid Guid { get; init; } = Guid.Empty;
+  public string Folder { get; init; } = "";
+  public string Email { get; init; } = "";
+  public string Name { get; init; } = "";
 }

@@ -4,8 +4,8 @@ namespace NorcusSheetsManager.Application.Corrector.GetInvalidNames;
 
 public sealed class GetInvalidNamesQuery : IQuery<InvalidNamesResponse>
 {
-  public string? Folder { get; set; }
-  public int? SuggestionsCount { get; set; }
-  public bool IsAdmin { get; set; }
-  public Guid UserId { get; set; }
+  public string? Folder { get; init; }
+  public int? SuggestionsCount { get; init; }
+  public bool IsAdmin { get; init; }
+  public Guid UserId { get; init; }
 }
