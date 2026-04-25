@@ -16,5 +16,5 @@ public class ConverterSettings
   public bool MovePdfToSubfolder { get; set; } = true;
   public string PdfSubfolder { get; set; } = "Archiv PDF";
   public bool FixGDriveNaming { get; set; } = true;
-  public string[] WatchedExtensions { get; set; } = new[] { ".pdf", ".jpg", ".png", ".txt" };
+  public string[] WatchedExtensions { get; set; } = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".gif" };
 }

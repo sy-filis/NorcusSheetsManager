@@ -14,7 +14,7 @@ public static class DependencyInjection
   public static IServiceCollection AddWebApi(this IServiceCollection services, ApiServerSettings settings)
   {
     services.AddSingleton<ITokenAuthenticator>(sp => new JWTAuthenticator(
-        settings.Key,
+        settings.JwtSigningKey,
         sp.GetRequiredService<ILogger<JWTAuthenticator>>()));
 
     services.AddCors(options =>

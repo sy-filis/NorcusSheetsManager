@@ -20,7 +20,7 @@ internal sealed class DatabaseHealthCheck(
 
   public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
   {
-    DatabaseConnection db = config.ApiServer.DbConnection;
+    DatabaseConnection db = config.DbConnection;
     var data = new Dictionary<string, object>
     {
       ["server"] = db.Server,

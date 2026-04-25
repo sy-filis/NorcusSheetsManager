@@ -17,7 +17,7 @@ public static class DependencyInjection
 
     services.AddSingleton<IDbLoader>(sp =>
     {
-      DatabaseConnection db = config.ApiServer.DbConnection;
+      DatabaseConnection db = config.DbConnection;
       if (File.Exists(db.Database) && Path.GetExtension(db.Database) == ".txt")
       {
         return new DbFileLoader(db.Database) { UserId = db.UserId };
