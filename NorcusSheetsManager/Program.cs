@@ -17,6 +17,7 @@ using NorcusSheetsManager.Infrastructure;
 using NorcusSheetsManager.Infrastructure.Configuration;
 using NorcusSheetsManager.SharedKernel;
 using NorcusSheetsManager.Web.Api;
+using NorcusSheetsManager.Web.Api.Authentication;
 using NorcusSheetsManager.Web.Api.Extensions;
 using Scalar.AspNetCore;
 
@@ -118,6 +119,11 @@ internal class Program
 
     if (config.ApiServer.RunServer)
     {
+      // Force authenticator construction so the empty-key warning (and any
+      // other constructor-time checks) fire at startup instead of on first
+      // request that hits an auth-protected endpoint.
+      _ = app.Services.GetRequiredService<ITokenAuthenticator>();
+
       app.Use(static async (HttpContext ctx, RequestDelegate next) =>
       {
         if (!_KnownHttpMethods.Contains(ctx.Request.Method))
