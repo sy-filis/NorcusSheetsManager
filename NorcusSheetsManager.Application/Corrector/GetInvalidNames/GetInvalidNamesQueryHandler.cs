@@ -10,7 +10,7 @@ internal sealed class GetInvalidNamesQueryHandler(INameCorrector corrector, IAcc
 {
   public Task<Result<InvalidNamesResponse>> Handle(GetInvalidNamesQuery query, CancellationToken cancellationToken)
   {
-    if (!corrector.ReloadData())
+    if (!corrector.HasSongs)
     {
       return Task.FromResult(Result.Failure<InvalidNamesResponse>(CorrectorErrors.NoSongsLoaded));
     }

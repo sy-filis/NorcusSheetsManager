@@ -15,6 +15,7 @@ internal class Corrector : INameCorrector
   private IEnumerable<string> _ExtensionFilter { get; set; }
   private readonly Regex _multiPageSuffix;
   public string BaseSheetsFolder { get; }
+  public bool HasSongs => _Songs.Count > 0;
   public IDbLoader DbLoader { get; }
   private readonly IStringDistance _stringSimilarityModel;
 

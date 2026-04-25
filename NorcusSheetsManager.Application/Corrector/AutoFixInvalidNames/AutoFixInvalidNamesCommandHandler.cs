@@ -18,7 +18,7 @@ internal sealed class AutoFixInvalidNamesCommandHandler(
       return Task.FromResult(Result.Failure<AutoFixInvalidNamesResponse>(CorrectorErrors.Forbidden));
     }
 
-    if (!corrector.ReloadData())
+    if (!corrector.HasSongs)
     {
       return Task.FromResult(Result.Failure<AutoFixInvalidNamesResponse>(CorrectorErrors.NoSongsLoaded));
     }

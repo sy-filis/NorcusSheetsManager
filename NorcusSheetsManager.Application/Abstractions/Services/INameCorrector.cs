@@ -5,6 +5,7 @@ namespace NorcusSheetsManager.Application.Abstractions.Services;
 public interface INameCorrector
 {
   string BaseSheetsFolder { get; }
+  bool HasSongs { get; }
   bool ReloadData();
   IEnumerable<IRenamingTransaction>? GetRenamingTransactionsForAllSubfolders(int suggestionsCount);
   IEnumerable<IRenamingTransaction>? GetRenamingTransactions(string sheetsSubfolder, int suggestionsCount);
