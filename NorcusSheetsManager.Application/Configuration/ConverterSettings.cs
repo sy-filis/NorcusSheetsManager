@@ -4,7 +4,7 @@ namespace NorcusSheetsManager.Application.Configuration;
 
 public class ConverterSettings
 {
-  public string? SheetsPath { get; set; } = AppContext.BaseDirectory;
+  public string? SheetsPath { get; set; }
   public bool AutoScan { get; set; } = true;
   public MagickFormat OutFileFormat { get; set; } = MagickFormat.Png;
   public string MultiPageDelimiter { get; set; } = "-";
