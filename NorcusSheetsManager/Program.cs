@@ -1,11 +1,9 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Text.Json;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using Asp.Versioning.Builder;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -152,10 +150,34 @@ internal class Program
         o.Theme = ScalarTheme.Default;
       });
 
-      app.MapHealthChecks("/health", new HealthCheckOptions
+      app.MapGet("/health", async (HealthCheckService healthService) =>
       {
-        ResponseWriter = _WriteHealthReportJson,
-      });
+        HealthReport report = await healthService.CheckHealthAsync();
+        var payload = new
+        {
+          status = report.Status.ToString(),
+          totalDuration = report.TotalDuration,
+          entries = report.Entries.ToDictionary(
+              e => e.Key,
+              e => new
+              {
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration,
+                data = e.Value.Data,
+                exception = e.Value.Exception?.Message,
+              }),
+        };
+        int statusCode = report.Status == HealthStatus.Unhealthy
+            ? StatusCodes.Status503ServiceUnavailable
+            : StatusCodes.Status200OK;
+        return Results.Json(payload, statusCode: statusCode);
+      })
+      .WithTags("Health")
+      .WithSummary("Health report")
+      .WithDescription("Reports the status of every registered IHealthCheck (sheets folder reachability, database connectivity). Returns 200 for Healthy or Degraded; 503 for Unhealthy.")
+      .Produces(StatusCodes.Status200OK)
+      .Produces(StatusCodes.Status503ServiceUnavailable);
 
       logger.LogInformation(
           "Norcus Sheets Manager {Version} started — API at {Url}, Scallar at {Url}/scalar, health at {Url}/health.",
@@ -167,28 +189,6 @@ internal class Program
     }
 
     return app;
-  }
-
-  private static Task _WriteHealthReportJson(HttpContext ctx, HealthReport report)
-  {
-    ctx.Response.ContentType = "application/json; charset=utf-8";
-    var payload = new
-    {
-      status = report.Status.ToString(),
-      totalDuration = report.TotalDuration,
-      entries = report.Entries.ToDictionary(
-          e => e.Key,
-          e => new
-          {
-            status = e.Value.Status.ToString(),
-            description = e.Value.Description,
-            duration = e.Value.Duration,
-            data = e.Value.Data,
-            exception = e.Value.Exception?.Message,
-          }),
-    };
-    string json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-    return ctx.Response.WriteAsync(json);
   }
 
   private static ExitCode _InstallService()
