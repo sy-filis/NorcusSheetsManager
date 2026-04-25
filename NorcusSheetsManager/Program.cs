@@ -272,15 +272,6 @@ internal class Program
           NorcusSheetsManager --uninstall-service    Uninstall the Windows service (requires admin).
           NorcusSheetsManager --help                 Show this help.
 
-        REST API (default URL: http://0.0.0.0:4434):
-          /api/v1/folders                            GET  list sheet folders
-          /api/v1/corrector/...                      GET/POST/DELETE  name-correction endpoints
-          /api/v1/manager/{scan|deep-scan|convert-all}  POST  trigger scans
-          /api/v1/corrector/auto-fix                 POST  commit top suggestion for every invalid filename
-          /api/v1/app/shutdown                       POST  stop the application
-          /health                                    GET  health report as JSON
-          /scalar/v1                                 GET  interactive API documentation
-
         Exit codes:
           0  Success
           1  Generic / unexpected error
@@ -294,10 +285,6 @@ internal class Program
   private static string _GetVersion()
   {
     string version = Assembly.GetEntryAssembly()?.GetName()?.Version?.ToString() ?? "";
-    while (version.EndsWith('0') || version.EndsWith("."))
-    {
-      version = version.Substring(0, version.Length - 1);
-    }
-    return version;
+    return version.Trim();
   }
 }

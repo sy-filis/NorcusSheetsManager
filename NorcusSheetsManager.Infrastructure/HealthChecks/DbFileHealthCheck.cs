@@ -19,7 +19,7 @@ internal sealed class DbFileHealthCheck(AppConfig config) : IHealthCheck
     };
 
     return Task.FromResult(
-      !File.Exists(path) ? 
+      !File.Exists(path) ?
         HealthCheckResult.Unhealthy($"Song file '{path}' does not exist.", data: data) :
         HealthCheckResult.Healthy($"Song file '{path}' is reachable.", data)
     );
