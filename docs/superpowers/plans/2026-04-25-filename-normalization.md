@@ -755,7 +755,7 @@ Replace it with:
     {
       return;
     }
-    string? baseName = FileNameNormalizer.GetBaseName(Path.GetFileName(fullPath));
+    string? baseName = _Normalizer.GetBaseName(Path.GetFileName(fullPath));
     if (baseName is null)
     {
       return;
