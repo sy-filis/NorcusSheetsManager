@@ -137,6 +137,7 @@ internal class Manager : IScanService, IWatcherControl
       _logger.LogInformation("{Count} files converted to {Format}.", convertCounter, Config.Converter.OutFileFormat);
     }
 
+    _NormalizeAllFolders();
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -226,6 +227,8 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     _logger.LogInformation("{Count} file(s) converted to {Format}.", convertCounter, Config.Converter.OutFileFormat);
+
+    _NormalizeAllFolders();
     _ScanningInProgress = false;
     StartWatching();
   }
@@ -290,6 +293,8 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     _logger.LogInformation("{Count} file(s) converted to {Format}.", convertCounter, Config.Converter.OutFileFormat);
+
+    _NormalizeAllFolders();
     _ScanningInProgress = false;
     StartWatching();
   }
