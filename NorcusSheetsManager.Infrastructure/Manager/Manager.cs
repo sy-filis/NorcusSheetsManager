@@ -394,6 +394,54 @@ internal class Manager : IScanService, IWatcherControl
     if (file.Extension == ".pdf")
     {
       _DeleteOlderAndConvert(file);
+      return;
+    }
+
+    _NormalizeImageFile(fullPath);
+  }
+
+  /// <summary>
+  /// If <paramref name="fullPath"/> is an image (extension in WatchedExtensions \ {.pdf}),
+  /// normalize the base-name group it belongs to. Pauses/resumes the watcher around the call.
+  /// </summary>
+  private void _NormalizeImageFile(string fullPath)
+  {
+    string ext = Path.GetExtension(fullPath);
+    if (string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
+    {
+      return;
+    }
+    if (!Config.Converter.WatchedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+    {
+      return;
+    }
+
+    string? folder = Path.GetDirectoryName(fullPath);
+    if (folder is null)
+    {
+      return;
+    }
+    string? baseName = _Normalizer.GetBaseName(Path.GetFileName(fullPath));
+    if (baseName is null)
+    {
+      return;
+    }
+
+    bool wasActive = _IsWatcherEnabled;
+    if (wasActive)
+    {
+      StopWatching();
+    }
+    try
+    {
+      _Normalizer.NormalizeSong(folder, baseName);
+    }
+    finally
+    {
+      if (wasActive)
+      {
+        StartWatching();
+      }
     }
   }
 
