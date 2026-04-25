@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MySqlConnector;
 using NorcusSheetsManager.Application.Abstractions.Services;
 using NorcusSheetsManager.Application.Configuration;
 using NorcusSheetsManager.Infrastructure.HealthChecks;
@@ -15,16 +16,18 @@ public static class DependencyInjection
   {
     services.AddSingleton(config);
 
-    services.AddSingleton<IDbLoader>(_ =>
+    DatabaseConnection dbConfig = config.DbConnection;
+    bool isFileBackend = File.Exists(dbConfig.Database) && Path.GetExtension(dbConfig.Database) == ".txt";
+
+    if (isFileBackend)
     {
-      DatabaseConnection db = config.DbConnection;
-      if (File.Exists(db.Database) && Path.GetExtension(db.Database) == ".txt")
-      {
-        return new DbFileLoader(db.Database) { UserId = db.UserId };
-      }
-      return new MySQLLoader(
-          db.Server, db.Port, db.Database, db.UserId, db.Password);
-    });
+      services.AddSingleton<IDbLoader>(_ => new DbFileLoader(dbConfig.Database) { UserId = dbConfig.UserId });
+    }
+    else
+    {
+      services.AddSingleton<IDbLoader>(_ => new MySQLLoader(
+          dbConfig.Server, dbConfig.Port, dbConfig.Database, dbConfig.UserId, dbConfig.Password));
+    }
 
     services.AddSingleton<INameCorrector>(sp => new Corrector(
         sp.GetRequiredService<IDbLoader>(),
@@ -45,9 +48,26 @@ public static class DependencyInjection
     services.AddHostedService<ManagerHostedService>();
     services.AddHostedService<DbRefreshHostedService>();
 
-    services.AddHealthChecks()
-        .AddCheck<SheetsFolderHealthCheck>("sheets-folder", tags: ["ready"])
-        .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+    IHealthChecksBuilder healthChecks = services.AddHealthChecks()
+        .AddCheck<SheetsFolderHealthCheck>("sheets-folder", tags: ["ready"]);
+
+    if (isFileBackend)
+    {
+      healthChecks.AddCheck<DbFileHealthCheck>("database", tags: ["ready"]);
+    }
+    else
+    {
+      string mysqlConnectionString = new MySqlConnectionStringBuilder
+      {
+        Server = dbConfig.Server,
+        Port = dbConfig.Port,
+        Database = dbConfig.Database,
+        UserID = dbConfig.UserId,
+        Password = dbConfig.Password,
+      }.ConnectionString;
+
+      healthChecks.AddMySql(mysqlConnectionString, name: "database", tags: ["ready"]);
+    }
 
     return services;
   }
