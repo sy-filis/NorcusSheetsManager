@@ -294,6 +294,27 @@ internal class Manager : IScanService, IWatcherControl
     StartWatching();
   }
 
+  /// <summary>
+  /// Runs filename normalization across every top-level subfolder of <see cref="ConverterSettings.SheetsPath"/>.
+  /// Called at the tail of every scan, while the watcher is still off.
+  /// </summary>
+  private void _NormalizeAllFolders()
+  {
+    string[] directories;
+    try
+    {
+      directories = Directory.GetDirectories(Config.Converter.SheetsPath!);
+    }
+    catch (DirectoryNotFoundException)
+    {
+      return;
+    }
+    foreach (string dir in directories)
+    {
+      _Normalizer.NormalizeFolder(dir);
+    }
+  }
+
   private void _FixAllGoogleFiles()
   {
     bool isWatcherActive = _IsWatcherEnabled;
