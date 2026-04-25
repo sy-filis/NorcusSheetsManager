@@ -75,6 +75,9 @@ internal class Program
     try
     {
       app = _BuildApp(args, config);
+      // StartAsync resolves the hosted services (and the Manager singleton
+      // they capture) — anything throwing here is a startup-phase failure.
+      await app.StartAsync();
     }
     catch (Exception ex)
     {
@@ -84,7 +87,7 @@ internal class Program
 
     try
     {
-      await app.RunAsync();
+      await app.WaitForShutdownAsync();
       return (int)ExitCode.Success;
     }
     catch (Exception ex)
