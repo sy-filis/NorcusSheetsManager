@@ -4,7 +4,18 @@ namespace NorcusSheetsManager.Application.Configuration;
 
 public class ConverterSettings
 {
-  public string? SheetsPath { get; set; }
+  public string? SheetsPath
+  {
+    get;
+    set
+    {
+      if (value == string.Empty)
+      {
+        throw new ArgumentException("SheetsPath cannot be empty.", nameof(SheetsPath));
+      }
+      field = value;
+    }
+  }
   public bool AutoScan { get; set; } = true;
   public MagickFormat OutFileFormat { get; set; } = MagickFormat.Png;
   public string MultiPageDelimiter { get; set; } = "-";
