@@ -9,9 +9,12 @@ internal sealed class FileNameNormalizer(
     AppConfig config,
     ILogger<FileNameNormalizer> logger) : IFileNameNormalizer
 {
-  private static readonly Regex _NumberedPattern = new(@"^(.+)-(\d+)\.([^.]+)$", RegexOptions.Compiled);
   private static readonly Regex _SimplePattern = new(@"^(.+)\.([^.]+)$", RegexOptions.Compiled);
   private const string _TempSuffix = ".tmp";
+
+  private readonly Regex _NumberedPattern = new(
+      $@"^(.+){Regex.Escape(config.Converter.MultiPageDelimiter)}(\d+)\.([^.]+)$",
+      RegexOptions.Compiled);
 
   public void NormalizeFolder(string folderPath)
   {
@@ -171,7 +174,7 @@ internal sealed class FileNameNormalizer(
     for (int i = 0; i < sorted.Count; i++)
     {
       int n = initNumber + i;
-      string targetName = $"{baseName}-{n.ToString().PadLeft(counterLength, '0')}.{sorted[i].P.Ext}";
+      string targetName = $"{baseName}{config.Converter.MultiPageDelimiter}{n.ToString().PadLeft(counterLength, '0')}.{sorted[i].P.Ext}";
       string targetPath = Path.Combine(folderPath, targetName);
       if (string.Equals(sorted[i].File.FullName, targetPath, StringComparison.OrdinalIgnoreCase))
       {
@@ -244,7 +247,7 @@ internal sealed class FileNameNormalizer(
   /// Parses "song-001.jpg" → ("song", 1, "jpg") greedy on the numbered pattern,
   /// falling back to "song.jpg" → ("song", null, "jpg"). Returns null if no extension.
   /// </summary>
-  private static (string Base, int? Page, string Ext)? _Parse(string fileName)
+  private (string Base, int? Page, string Ext)? _Parse(string fileName)
   {
     Match m = _NumberedPattern.Match(fileName);
     if (m.Success)
@@ -259,11 +262,7 @@ internal sealed class FileNameNormalizer(
     return null;
   }
 
-  /// <summary>
-  /// Public-ish helper for callers (Manager) that have a filename and want the parsed base name.
-  /// Returns null if the filename can't be parsed.
-  /// </summary>
-  internal static string? GetBaseName(string fileName)
+  public string? GetBaseName(string fileName)
   {
     return _Parse(fileName)?.Base;
   }
