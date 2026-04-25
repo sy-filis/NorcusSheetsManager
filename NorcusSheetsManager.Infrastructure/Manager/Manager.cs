@@ -9,12 +9,13 @@ internal class Manager : IScanService, IWatcherControl
 {
   private readonly ILogger<Manager> _logger;
   private readonly Converter _Converter;
+  private readonly IFileNameNormalizer _Normalizer;
   private readonly List<FileSystemWatcher> _FileSystemWatchers;
   private bool _IsWatcherEnabled;
   private bool _ScanningInProgress;
   public AppConfig Config { get; }
 
-  public Manager(AppConfig config, Converter converter, ILogger<Manager> logger)
+  public Manager(AppConfig config, Converter converter, IFileNameNormalizer normalizer, ILogger<Manager> logger)
   {
     Config = config;
     _logger = logger;
@@ -26,6 +27,7 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     _Converter = converter;
+    _Normalizer = normalizer;
     _FileSystemWatchers = _CreateFileSystemWatchers();
   }
 
