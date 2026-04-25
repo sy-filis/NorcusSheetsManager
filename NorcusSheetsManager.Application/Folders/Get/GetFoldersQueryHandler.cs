@@ -8,7 +8,7 @@ internal sealed class GetFoldersQueryHandler(IFolderBrowser browser) : IQueryHan
 {
   public Task<Result<IReadOnlyList<string>>> Handle(GetFoldersQuery query, CancellationToken cancellationToken)
   {
-    IReadOnlyList<string> folders = browser.GetSheetFolders().ToList();
+    IReadOnlyList<string> folders = browser.GetSheetFolders().ToList().AsReadOnly();
     return Task.FromResult(Result.Success(folders));
   }
 }

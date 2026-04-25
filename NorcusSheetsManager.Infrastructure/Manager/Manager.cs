@@ -433,7 +433,7 @@ internal class Manager : IScanService, IWatcherControl
       }
       if (images.Length == 0 || imgsAreOlder || forceDeleteAndConvert)
       {
-        List<FileInfo> createdImages = _Converter.Convert(pdfFile).ToList();
+        var createdImages = _Converter.Convert(pdfFile).ToList();
         if (createdImages.Count > 0)
         {
           _SyncFileTimes(pdfFile, createdImages);

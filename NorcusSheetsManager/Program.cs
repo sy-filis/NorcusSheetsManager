@@ -42,8 +42,10 @@ internal class Program
     {
       switch (args[0])
       {
-        case "--install-service": return _InstallService();
-        case "--uninstall-service": return _UninstallService();
+        case "--install-service":
+          return _InstallService();
+        case "--uninstall-service":
+          return _UninstallService();
         case "--help":
         case "-h":
         case "/?":
@@ -211,7 +213,7 @@ internal class Program
       startInfo.ArgumentList.Add(arg);
     }
 
-    using Process? proc = Process.Start(startInfo);
+    using var proc = Process.Start(startInfo);
     if (proc is null)
     {
       Console.Error.WriteLine("Failed to start sc.exe.");

@@ -8,7 +8,7 @@ internal sealed class ForceConvertAllCommandHandler(IScanService scanner) : ICom
 {
   public Task<Result> Handle(ForceConvertAllCommand command, CancellationToken cancellationToken)
   {
-    _ = Task.Run(scanner.ForceConvertAll, cancellationToken);
+    Task.Run(scanner.ForceConvertAll, cancellationToken);
     return Task.FromResult(Result.Success());
   }
 }

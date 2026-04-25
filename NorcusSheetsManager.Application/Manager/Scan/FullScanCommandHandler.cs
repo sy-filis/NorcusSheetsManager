@@ -8,7 +8,7 @@ internal sealed class FullScanCommandHandler(IScanService scanner) : ICommandHan
 {
   public Task<Result> Handle(FullScanCommand command, CancellationToken cancellationToken)
   {
-    _ = Task.Run(scanner.FullScan, cancellationToken);
+    Task.Run(scanner.FullScan, cancellationToken);
     return Task.FromResult(Result.Success());
   }
 }

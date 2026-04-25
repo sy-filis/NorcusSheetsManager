@@ -8,7 +8,7 @@ internal sealed class DeepScanCommandHandler(IScanService scanner) : ICommandHan
 {
   public Task<Result> Handle(DeepScanCommand command, CancellationToken cancellationToken)
   {
-    _ = Task.Run(scanner.DeepScan, cancellationToken);
+    Task.Run(scanner.DeepScan, cancellationToken);
     return Task.FromResult(Result.Success());
   }
 }

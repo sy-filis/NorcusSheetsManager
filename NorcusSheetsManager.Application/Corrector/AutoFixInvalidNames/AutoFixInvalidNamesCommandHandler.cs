@@ -30,7 +30,7 @@ internal sealed class AutoFixInvalidNamesCommandHandler(
     }
 
     // Materialize so subsequent Commit calls (which mutate the corrector's internal cache) don't disrupt iteration.
-    List<IRenamingTransaction> snapshot = transactions.ToList();
+    var snapshot = transactions.ToList();
     var failures = new List<string>();
     int fixedCount = 0;
 
