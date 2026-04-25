@@ -17,6 +17,7 @@ using NorcusSheetsManager.Application;
 using NorcusSheetsManager.Application.Configuration;
 using NorcusSheetsManager.Infrastructure;
 using NorcusSheetsManager.Infrastructure.Configuration;
+using NorcusSheetsManager.SharedKernel;
 using NorcusSheetsManager.Web.Api;
 using NorcusSheetsManager.Web.Api.Extensions;
 using Scalar.AspNetCore;
@@ -43,21 +44,55 @@ internal class Program
       switch (args[0])
       {
         case "--install-service":
-          return _InstallService();
+          return (int)_InstallService();
         case "--uninstall-service":
-          return _UninstallService();
+          return (int)_UninstallService();
         case "--help":
         case "-h":
         case "/?":
           _PrintUsage();
-          return 0;
+          return (int)ExitCode.Success;
       }
     }
 
-    AppConfig config = ConfigLoader.Load();
-    WebApplication app = _BuildApp(args, config);
-    await app.RunAsync();
-    return 0;
+    AppConfig config;
+    try
+    {
+      config = ConfigLoader.Load();
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine($"Configuration load failed: {ex.Message}");
+      return (int)ExitCode.ConfigurationError;
+    }
+
+    if (string.IsNullOrEmpty(config.Converter.SheetsPath))
+    {
+      Console.Error.WriteLine("Configuration error: Converter.SheetsPath is required.");
+      return (int)ExitCode.ConfigurationError;
+    }
+
+    WebApplication app;
+    try
+    {
+      app = _BuildApp(args, config);
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine($"Startup failed: {ex.Message}");
+      return (int)ExitCode.StartupFailed;
+    }
+
+    try
+    {
+      await app.RunAsync();
+      return (int)ExitCode.Success;
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine($"Unhandled error: {ex.Message}");
+      return (int)ExitCode.GenericError;
+    }
   }
 
   private static WebApplication _BuildApp(string[] args, AppConfig config)
@@ -156,23 +191,23 @@ internal class Program
     return ctx.Response.WriteAsync(json);
   }
 
-  private static int _InstallService()
+  private static ExitCode _InstallService()
   {
     if (!OperatingSystem.IsWindows())
     {
       Console.Error.WriteLine("Windows service installation is only supported on Windows. On Linux use systemd or Docker.");
-      return 1;
+      return ExitCode.UnsupportedPlatform;
     }
 
     string? exePath = Environment.ProcessPath;
     if (string.IsNullOrEmpty(exePath))
     {
       Console.Error.WriteLine("Cannot determine executable path.");
-      return 1;
+      return ExitCode.GenericError;
     }
 
-    int code = _RunSc("create", ServiceName, "binPath=", exePath, "start=", "auto", "DisplayName=", ServiceDisplayName);
-    if (code == 0)
+    ExitCode result = _RunSc("create", ServiceName, "binPath=", exePath, "start=", "auto", "DisplayName=", ServiceDisplayName);
+    if (result == ExitCode.Success)
     {
       Console.WriteLine($"Service '{ServiceName}' installed. Start with:  sc start {ServiceName}");
     }
@@ -180,26 +215,26 @@ internal class Program
     {
       Console.Error.WriteLine("Service installation failed. Run from an elevated (Administrator) prompt.");
     }
-    return code;
+    return result;
   }
 
-  private static int _UninstallService()
+  private static ExitCode _UninstallService()
   {
     if (!OperatingSystem.IsWindows())
     {
       Console.Error.WriteLine("Windows service uninstallation is only supported on Windows.");
-      return 1;
+      return ExitCode.UnsupportedPlatform;
     }
 
-    int code = _RunSc("delete", ServiceName);
-    if (code != 0)
+    ExitCode result = _RunSc("delete", ServiceName);
+    if (result != ExitCode.Success)
     {
       Console.Error.WriteLine("Service uninstallation failed. Run from an elevated (Administrator) prompt.");
     }
-    return code;
+    return result;
   }
 
-  private static int _RunSc(params string[] arguments)
+  private static ExitCode _RunSc(params string[] arguments)
   {
     var startInfo = new ProcessStartInfo
     {
@@ -217,12 +252,12 @@ internal class Program
     if (proc is null)
     {
       Console.Error.WriteLine("Failed to start sc.exe.");
-      return 1;
+      return ExitCode.ServiceManagementFailed;
     }
     proc.WaitForExit();
     Console.Write(proc.StandardOutput.ReadToEnd());
     Console.Error.Write(proc.StandardError.ReadToEnd());
-    return proc.ExitCode;
+    return proc.ExitCode == 0 ? ExitCode.Success : ExitCode.ServiceManagementFailed;
   }
 
   private static void _PrintUsage()
@@ -244,7 +279,15 @@ internal class Program
           /api/v1/corrector/auto-fix                 POST  commit top suggestion for every invalid filename
           /api/v1/app/shutdown                       POST  stop the application
           /health                                    GET  health report as JSON
-          /swagger                                   GET  interactive API documentation
+          /scalar/v1                                 GET  interactive API documentation
+
+        Exit codes:
+          0  Success
+          1  Generic / unexpected error
+          2  Configuration error (missing or invalid appsettings)
+          3  Unsupported platform (e.g. service install on non-Windows)
+          4  Service install/uninstall failed (sc.exe error or insufficient privileges)
+          5  Startup failed (DI graph or web host could not initialize)
         """);
   }
 
