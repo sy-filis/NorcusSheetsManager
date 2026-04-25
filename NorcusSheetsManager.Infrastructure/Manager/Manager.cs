@@ -484,6 +484,11 @@ internal class Manager : IScanService, IWatcherControl
     }
 
     _logger.LogDebug("Detected: {Path} was deleted.", e.FullPath);
+
+    if (Path.GetExtension(e.FullPath) != ".pdf")
+    {
+      _NormalizeImageFile(e.FullPath);
+    }
   }
 
   private FileInfo[] _GetImagesForPdf(FileInfo pdfFile)
